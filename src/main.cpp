@@ -616,22 +616,31 @@ int main (int argc, char **argv) {
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/tag): " };
 
-        const std::string filePath = req.url_params.get("path");
-        const std::string fileExtension = fs::path(filePath).extension().string();
-        CROW_LOG_WARNING << logPrefix << "requested file: " << filePath;
+        const char *file = req.url_params.get("path");
+        if (file) {
+            if (!application.isMountPoint(file)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+                return crow::response { 403, "The requested path is not a mount-point" };
+            }
+            const std::string_view filePath = file;
+            const std::string fileExtension = fs::path(filePath).extension().string();
+            CROW_LOG_WARNING << logPrefix << "requested file: " << filePath;
 
-        const auto handler = Factory::create(fileExtension);
-        const auto result = handler->listMusicTags(filePath);
+            const auto handler = Factory::create(fileExtension);
+            const auto result = handler->listMusicTags(filePath.data());
 
-        if (!result.has_value()) {
-            CROW_LOG_ERROR << logPrefix << "error occurred: " << result.error();
-            crow::response res(500, result.error());
+            if (!result.has_value()) {
+                CROW_LOG_ERROR << logPrefix << "error occurred: " << result.error();
+                crow::response res(500, result.error());
+                return res;
+            }
+
+            crow::response res(result.value().dump());
+            res.set_header("Content-Type", "application/json");
             return res;
         }
-
-        crow::response res(result.value().dump());
-        res.set_header("Content-Type", "application/json");
-        return res;
+        CROW_LOG_ERROR << logPrefix << "path is missing";
+        return crow::response { 400, "path is missing" };
     });
 
     CROW_ROUTE(app, "/api/tag-registry")
