@@ -25,31 +25,6 @@ using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 namespace fs = std::filesystem;
 
-static std::string fileExtensionToType(const std::string_view ext) {
-    const std::string a { ext };
-    const static std::unordered_map<std::string, std::string> s_extensionsMap {
-        {".mp3",    "music"},      // done
-        {".flac",   "music"},     // done
-        {".m4a",    "music"},      // done
-        {".ogg",    "music"},      // done
-        {".opus",   "music"},
-        {".aac",    "music"},      // not implemented
-        {".wma",    "music"},      // not implemented
-        {".wav",    "music"},      // not implemented
-        {".aif",    "music"},      // not implemented
-        {".aiff",   "music"},     // not implemented
-        {".alac",   "music"},     // not implemented
-        {".jpg",    "picture"},
-        {".jpeg",   "picture"},
-        {".png",    "picture"}
-    };
-
-    if (const auto it = s_extensionsMap.find(a); it != s_extensionsMap.end())
-        return it->second;
-
-    return "file";
-}
-
 static rte::EntityType fileExtensionToEntityType(const std::string_view ext) {
     using namespace rte;
     std::string a { ext };
@@ -81,41 +56,6 @@ static rte::EntityType fileExtensionToEntityType(const std::string_view ext) {
 
 static std::string getExtension(const std::string &path) {
     return fs::path{path}.extension().string();
-}
-
-static ordered_json buildDirectoryTree(const std::string &basePath, const int depth = rte::DIR_DEPTH::ARTIST, int depthCount = 0, bool contentOnly = false) {
-    ordered_json rootTree = json::object();
-    const fs::path root { basePath };
-    rootTree["name"] = root.filename().lexically_normal().string();
-    rootTree["type"] = "directory";
-    rootTree["content"] = json::array();
-
-    // This is a depth limiter
-    // If a depthCount is equal to setuped depth, then it will return only name and type of directory.
-    if (depthCount == depth && depthCount != -1)
-        return rootTree;
-
-    const auto fileNode = [](const std::string &path, const std::string &extension, const fs::path &relPath) {
-        ordered_json jfile = json::object();
-        jfile["name"] = relPath;
-        jfile["type"] = fileExtensionToType(extension);
-        jfile["extension"] = extension;
-        return jfile;
-    };
-
-    for (const auto &entry : fs::directory_iterator(root)) {
-        if (entry.is_symlink()) continue;
-        if (entry.is_directory()) {
-            const fs::path relPath = entry.path().lexically_relative(root);
-            rootTree["content"].push_back(buildDirectoryTree(entry.path().string(), depth, depthCount + 1));
-        } else {
-            const fs::path relPath = entry.path().lexically_relative(root);
-            const auto fileExtenstion = relPath.extension().string();
-            rootTree["content"].push_back(fileNode(entry.path().string(), fileExtenstion, relPath));
-        }
-    }
-
-    return rootTree;
 }
 
 static ordered_json buildDirectoryTree(const std::string &basePath, const rte::QueryList &query) {
@@ -661,32 +601,6 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/heartbeat")
     ([]() {
         return crow::response{ 200 };
-    });
-
-    CROW_ROUTE(app, "/api/list").methods("GET"_method)
-    ([&] (const crow::request &req){
-        constexpr std::string_view logPrefix { "(api/list): "};
-        std::string requestedPath = req.url_params.get("path");
-
-        // Remove trailing slash for buildMainDirectoryTree
-        while (requestedPath.size() > 1 && requestedPath.ends_with('/'))
-            requestedPath.pop_back();
-
-        if (fs::path filePath{ requestedPath }; application.isMountPoint(filePath)) {
-            if (fs::is_regular_file(filePath))
-                filePath = filePath.parent_path();
-
-            CROW_LOG_WARNING << logPrefix << "building tree for: " << filePath;
-            auto directoryTree = buildDirectoryTree(filePath, rte::DIR_DEPTH::ARTIST);
-            directoryTree["path"] = filePath.generic_string();
-            crow::response res(directoryTree.dump());
-            res.set_header("Content-Type", "application/json");
-
-            return res;
-        }
-
-        CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-        return crow::response{ 500, "The requested path is not a mount-point" };
     });
 
     CROW_ROUTE(app, "/api/list-v2").methods("GET"_method)
