@@ -52,7 +52,10 @@ static std::string fileExtensionToType(const std::string_view ext) {
 
 static rte::EntityType fileExtensionToEntityType(const std::string_view ext) {
     using namespace rte;
-    const std::string a { ext };
+    std::string a { ext };
+    std::ranges::transform(a, a.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
     const static std::unordered_map<std::string, EntityType> s_extensionMap {
         {".mp3",    EntityType::music},
         {".flac",   EntityType::music},
