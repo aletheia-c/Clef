@@ -5,17 +5,17 @@
 
 #include "../../include/interface.h"
 
-namespace rte::music::handler {
+namespace clef::music::handler {
     class Mpeg4 : public Interface {
     private:
         constexpr static std::string_view m_type { "mp4" };
-        static void ensureRteid(std::string *rteid, TagLib::MP4::Tag *tag);
+        static void ensureClefId(std::string *clefId, TagLib::MP4::Tag *tag);
     public:
         std::expected<json, std::string> listMusicTags(const std::string &filePath) override;
         static void addUserDefinedAtom(const TagModification &tagStruct);
-        crow::response removeMusicTag(const TagModification &tagStruct, std::string *rteid = nullptr) override;
-        crow::response addMusicTag(const TagModification &tagStruct, std::string *rteid = nullptr) override;
-        crow::response editMusicTags(const TagModification &tagStruct, std::string *rteid = nullptr) override;
+        crow::response removeMusicTag(const TagModification &tagStruct, std::string *clefId = nullptr) override;
+        crow::response addMusicTag(const TagModification &tagStruct, std::string *clefId = nullptr) override;
+        crow::response editMusicTags(const TagModification &tagStruct, std::string *clefId = nullptr) override;
         tag::Picture getAlbumCover(const std::string& filePath) override { return tag::Picture{}; }
         void removeAlbumCover(const std::string& filePath) override {}
         void addAlbumCover(const std::string& filePath) override {}

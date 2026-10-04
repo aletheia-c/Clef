@@ -1,7 +1,7 @@
 import * as React from "react";
 
 export interface HistoryTarget {
-  /** rteid when useRteid is on, otherwise the file's absolute path. */
+  /** clefId when useClefId is on, otherwise the file's absolute path. */
   identifier: string;
   /** Display name (the file's basename). */
   title: string;

@@ -58,7 +58,7 @@ RUN apk add --no-cache \
     libstdc++
 
 COPY --from=build /usr/local /usr/local
-COPY --from=build /app/build/web_tag_editor /usr/local/bin/web_tag_editor
+COPY --from=build /app/build/Clef /usr/local/bin/Clef
 COPY --from=frontend-build /app/frontend-v2/dist/ /app/frontend/
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/start.sh /app/start.sh

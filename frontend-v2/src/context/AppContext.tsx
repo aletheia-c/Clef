@@ -13,8 +13,8 @@ interface AppContextValue {
   ready: boolean;
   mountPoint: string | null;
   settings: AppSettings | null;
-  /** true when the backend was started with --use-rteid (history keyed by rteid). */
-  useRteid: boolean;
+  /** true when the backend was started with --use-clefid (history keyed by clefId). */
+  useClefId: boolean;
   /** Raw ↔ display-name translation table from GET /api/tag-registry. */
   tagIndex: TagIndex;
   status: ConnectionStatus;
@@ -91,7 +91,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ready: mountPoint !== null,
     mountPoint,
     settings,
-    useRteid: settings?.rteid ?? false,
+    useClefId: settings?.clef_id ?? false,
     tagIndex,
     status,
   };

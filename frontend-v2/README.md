@@ -82,12 +82,17 @@ From `api.md`: `getmntpoint`, `list`, `tag`, `tag-registry`, `gethistory`,
 back to a "No cover art" placeholder until you implement it).
 
 Also used (not in `api.md`, present in the backend): `settings` (reads
-`useRteid` / mountpoint / version) and `undo` (per-entry history undo). All API
+Clef_ID mode via the backend's `clef_id` field / mountpoint / version) and `undo`
+(per-entry history undo). All API
 calls degrade gracefully if an endpoint is missing.
 
 > Note: `/api/events/delete` is intentionally **not** called from the UI — it's
-> driven by the backend's inotify + curl watcher. The RTEID is shown as a
+> driven by the backend's inotify + curl watcher. The Clef_ID is shown as a
 > read-only badge.
+
+The frontend recognizes `Clef_ID` and legacy `RTEID` tags, including their
+ID3v2 and MP4 prefixes. Settings, history, and undo payloads use `clef_id` in JSON. Backend variables
+and the database column use `clefId`; the embedded music tag is `Clef_ID`.
 
 ## Feature map
 

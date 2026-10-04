@@ -1,6 +1,7 @@
 #include "../include/utils.h"
+#include <random>
 
-namespace rte::utils {
+namespace clef::utils {
     bool naturalLess(std::string_view l, std::string_view r) {
         std::size_t i = 0, j = 0;
         while (i < l.size() && j < r.size()) {
@@ -78,5 +79,23 @@ namespace rte::utils {
         return std::nullopt;
     }
 
+    std::string generateId(const std::size_t t) {
+        static constexpr std::string_view ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+        static std::mt19937 rng(std::random_device{}());
+        static std::uniform_int_distribution<std::size_t> distribution(0, ALPHABET.size() - 1);
+
+        std::string id;
+        id.reserve(t);
+
+        for (std::size_t i = 0; i < t; i++) {
+            id.push_back(ALPHABET[distribution(rng)]);
+        }
+
+        return id;
+    }
+
+    std::string getExtension(const std::string &path) {
+        return fs::path{path}.extension().string();
+    }
 }

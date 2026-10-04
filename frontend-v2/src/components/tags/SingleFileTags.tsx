@@ -11,21 +11,21 @@ import { useApp } from "@/context/AppContext";
 import { usePrefs } from "@/context/PrefsContext";
 import { useHistoryPanel } from "@/context/HistoryContext";
 import { useDialogs } from "@/hooks/useDialogs";
-import { coerce, readRteid, isHiddenTag } from "@/lib/tags";
+import { coerce, readClefId, isHiddenTag } from "@/lib/tags";
 import { displayTag, tagLabel, tagTooltip } from "@/lib/tagRegistry";
 import { basename } from "@/lib/utils";
-import { RteidBadge } from "./RteidBadge";
+import { ClefIdBadge } from "./ClefIdBadge";
 
 export function SingleFileTags({
   filePath,
-  onRteid,
+  onClefId,
 }: {
   filePath: string;
-  onRteid: (badge: React.ReactNode) => void;
+  onClefId: (badge: React.ReactNode) => void;
 }) {
   const { tags, loading, error, reload } = useTags(filePath);
   const mut = useTagMutations(reload);
-  const { useRteid, tagIndex } = useApp();
+  const { useClefId, tagIndex } = useApp();
   const { showRawTags } = usePrefs();
   const { setTarget, tagsRefreshToken } = useHistoryPanel();
   const { confirm } = useDialogs();
@@ -40,29 +40,29 @@ export function SingleFileTags({
     reload();
   }, [tagsRefreshToken, reload]);
 
-  const rteid = tags ? readRteid(tags) : null;
+  const clefId = tags ? readClefId(tags) : null;
   const showThrobber = useDelayedFlag(!tags && !error);
 
-  // Publish the RTEID badge to the panel header.
+  // Publish the Clef_ID badge to the panel header.
   React.useEffect(() => {
-    onRteid(rteid ? <RteidBadge rteid={rteid} /> : null);
-  }, [rteid, onRteid]);
+    onClefId(clefId ? <ClefIdBadge clefId={clefId} /> : null);
+  }, [clefId, onClefId]);
 
-  // Configure the history target (rteid when useRteid, else the path). Do NOT
+  // Configure the history target (clefId when useClefId, else the path). Do NOT
   // clear on unmount: switching between music files should swap the history
   // panel's content, not close it. TagPanel clears the target when the
   // selection is no longer a single music file.
   React.useEffect(() => {
-    if (!useRteid) {
+    if (!useClefId) {
       // Identifier is the path — known immediately, no need to wait for tags.
       setTarget({ identifier: filePath, title: basename(filePath) });
       return;
     }
-    // useRteid: identifier is the file's RTEID, known only once tags load.
+    // useClefId: identifier is the file's Clef_ID, known only once tags load.
     // Keep the current target while loading so the panel doesn't flash closed.
     if (loading && !tags) return;
-    setTarget(rteid ? { identifier: rteid, title: basename(filePath) } : null);
-  }, [useRteid, filePath, rteid, loading, tags, setTarget]);
+    setTarget(clefId ? { identifier: clefId, title: basename(filePath) } : null);
+  }, [useClefId, filePath, clefId, loading, tags, setTarget]);
 
   const entries = React.useMemo(
     () =>

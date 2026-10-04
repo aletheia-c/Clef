@@ -18,7 +18,7 @@ export function Header() {
       <div className="flex min-w-0 items-center gap-3">
         <Logo />
         <div className="flex min-w-0 flex-col leading-tight">
-          <h1 className="truncate text-sm font-semibold">Music Tag Editor</h1>
+          <h1 className="truncate text-sm font-semibold">Clef</h1>
           <span className="truncate font-mono text-xs text-muted-foreground">
             {mountPoint ?? (status === "connecting" ? "Connecting…" : "—")}
           </span>

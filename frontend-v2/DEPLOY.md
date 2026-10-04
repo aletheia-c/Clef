@@ -158,8 +158,8 @@ See `README.md` for more.
 - **`/api/getalbumcover`** is still a placeholder on the backend; the UI shows a
   "No cover art" fallback until you implement it. The cover right-click / drag &
   drop actions are UI-only stubs for now.
-- **RTEID mode**: `docker-compose.yml` sets `RTE_USERTEID=TRUE`, so history is
-  keyed by RTEID — the frontend reads this from `GET /api/settings` and adapts
+- **Clef_ID mode**: `docker-compose.yml` sets `RTE_USERTEID=TRUE`, so history is
+  keyed by Clef_ID — the frontend reads this from `GET /api/settings` and adapts
   automatically.
 - **Reverse proxy / subpath**: this guide assumes the app is served at the
   domain root (`tag.example.com/`). Serving under a subpath

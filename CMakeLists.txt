@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(web_tag_editor)
+project(Clef)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -18,8 +18,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SQLiteCpp)
 
 # Your executable
-add_executable(web_tag_editor src/main.cpp
-        include/rte.h
+add_executable(Clef src/main.cpp
+        include/clef.h
         include/interface.h
         src/format_handlers/flac.h
         src/format_handlers/flac.cpp
@@ -48,15 +48,15 @@ add_executable(web_tag_editor src/main.cpp
 )
 
 # Include headers
-target_include_directories(web_tag_editor PRIVATE ${TAGLIB_INCLUDE_DIRS})
-target_link_libraries(web_tag_editor PRIVATE ${TAGLIB_LIBRARIES})
-target_link_libraries(web_tag_editor PRIVATE nlohmann_json::nlohmann_json)
-target_link_libraries(web_tag_editor PRIVATE SQLiteCpp sqlite3 pthread dl)
-target_link_libraries(web_tag_editor PRIVATE ZLIB::ZLIB)
+target_include_directories(Clef PRIVATE ${TAGLIB_INCLUDE_DIRS})
+target_link_libraries(Clef PRIVATE ${TAGLIB_LIBRARIES})
+target_link_libraries(Clef PRIVATE nlohmann_json::nlohmann_json)
+target_link_libraries(Clef PRIVATE SQLiteCpp sqlite3 pthread dl)
+target_link_libraries(Clef PRIVATE ZLIB::ZLIB)
 
 # Compiler flags (if needed)
-target_compile_options(web_tag_editor PRIVATE ${TAGLIB_CFLAGS_OTHER})
-target_compile_definitions(web_tag_editor
+target_compile_options(Clef PRIVATE ${TAGLIB_CFLAGS_OTHER})
+target_compile_definitions(Clef
         PRIVATE $<$<CONFIG:Debug>:APP_DEBUG>
 )
-target_compile_definitions(web_tag_editor PRIVATE CROW_ENABLE_COMPRESSION)
+target_compile_definitions(Clef PRIVATE CROW_ENABLE_COMPRESSION)

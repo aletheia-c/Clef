@@ -7,18 +7,12 @@
 
 #include "SQLiteCpp/Backup.h"
 
-namespace rte {
+namespace clef {
     namespace fs = std::filesystem;
 
-    constexpr std::string_view version { "1.5.0" };
-    constexpr std::string_view name { "web-tag-editor" };
+    constexpr std::string_view version { "0.0.1" };
+    constexpr std::string_view name { "Clef" };
     constexpr std::string jsonMissingValue { "_json_none" };
-
-    enum DIR_DEPTH {
-        ARTIST = 1,
-        ARTIST_AND_ALBUMS = 2,
-        ALL = 100,
-    };
 
     enum class EntityType {
         directory,
@@ -29,8 +23,8 @@ namespace rte {
         max_type
     };
 
-    namespace Environments {
-        constexpr std::string_view use_rteid { "RTE_USERTEID" };
+    namespace environments {
+        constexpr std::string_view useClefId { "CLEF_USEID" };
     }
 
     struct QueryList {
@@ -63,7 +57,7 @@ namespace rte {
         std::string mountpoint { "/music" };
         std::string dbpath { "data/database.db" };
         std::string mappingpath { "data/mapping.json" };
-        bool useRteid { false };
+        bool useClefId { false };
         int port{ 18080 };
 
         [[nodiscard]] bool isExist() const {

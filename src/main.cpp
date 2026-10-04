@@ -6,7 +6,6 @@
 #include <ctime>
 #include <unordered_set>
 #include <cctype>
-#include <random>
 #include <algorithm>
 
 #include <nlohmann/json.hpp>
@@ -16,7 +15,7 @@
 #include <CLI/CLI.hpp>
 
 #include "../include/storage.h"
-#include "../include/rte.h"
+#include "../include/clef.h"
 #include "../include/utils.h"
 #include "format_handlers/factory.h"
 #include "SQLiteCpp/SQLiteCpp.h"
@@ -25,8 +24,8 @@ using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
 namespace fs = std::filesystem;
 
-static rte::EntityType fileExtensionToEntityType(const std::string_view ext) {
-    using namespace rte;
+static clef::EntityType fileExtensionToEntityType(const std::string_view ext) {
+    using namespace clef;
     std::string a { ext };
     std::ranges::transform(a, a.begin(), [](unsigned char c) {
         return static_cast<char>(std::tolower(c));
@@ -54,12 +53,8 @@ static rte::EntityType fileExtensionToEntityType(const std::string_view ext) {
     return EntityType::file;
 }
 
-static std::string getExtension(const std::string &path) {
-    return fs::path{path}.extension().string();
-}
-
-static ordered_json buildDirectoryTree(const std::string &basePath, const rte::QueryList &query) {
-    using namespace rte;
+static ordered_json buildDirectoryTree(const std::string &basePath, const clef::QueryList &query) {
+    using namespace clef;
 
     std::vector<FileEntity> entities;
     const fs::path path { basePath };
@@ -119,27 +114,11 @@ static ordered_json buildDirectoryTree(const std::string &basePath, const rte::Q
     return j;
 }
 
-static std::string generateId(const std::size_t t=16) {
-    static constexpr std::string_view ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-    static std::mt19937 rng(std::random_device{}());
-    static std::uniform_int_distribution<std::size_t> distribution(0, ALPHABET.size() - 1);
-
-    std::string id;
-    id.reserve(t);
-
-    for (std::size_t i = 0; i < t; i++) {
-        id.push_back(ALPHABET[distribution(rng)]);
-    }
-
-    return id;
-}
-
 int main (int argc, char **argv) {
-    using namespace rte::music;
-    using namespace rte::music::handler;
+    using namespace clef::music;
+    using namespace clef::music::handler;
 
-    rte::Settings application {};
+    clef::Settings application {};
     int debugLevel {};
     auto logLevel { crow::LogLevel::Info };
 
@@ -157,13 +136,12 @@ int main (int argc, char **argv) {
                 "temp")->default_val(crow::LogLevel::WARNING);
         cli.add_option("--database-path", application.dbpath,
             "Database path location. Default is /")->default_val("data/database.db");
-        cli.add_flag("--use-rteid", application.useRteid, "");
+        cli.add_flag("--use-clefid", application.useClefId, "");
         CLI11_PARSE(cli, argc, argv);
 
-        const auto rteid = std::getenv(rte::Environments::use_rteid.data());
-        if (rteid) {
-            if (strcasecmp(rteid, "true") == 0) application.useRteid = true;
-            if (strcasecmp(rteid, "false") == 0) application.useRteid = false;
+        const char* clefId = std::getenv(clef::environments::useClefId.data());
+        if (clefId) {
+            application.useClefId = clef::utils::parseBool(clefId).value_or(false);
         }
     }
 
@@ -185,9 +163,9 @@ int main (int argc, char **argv) {
     }
 #endif
 
-    std::unique_ptr<rte::storage::Database> db;
+    std::unique_ptr<clef::storage::Database> db;
     try {
-        db = std::make_unique<rte::storage::Database>(application.dbpath);
+        db = std::make_unique<clef::storage::Database>(application.dbpath);
         tag::getTagMap(); // pointless call but it builds tag mapping table, could be changed overtime
     } catch (std::exception &e) {
         CROW_LOG_CRITICAL << e.what() << '\n';
@@ -195,7 +173,7 @@ int main (int argc, char **argv) {
     }
 
     crow::App<crow::CORSHandler> app;
-    CROW_LOG_INFO << rte::name << " ver " << rte::version << " is running now";
+    CROW_LOG_INFO << clef::name << " v" << clef::version << " is running now";
 
     CROW_ROUTE(app, "/api/events/delete").methods("POST"_method)
     ([&](const crow::request& req) {
@@ -207,9 +185,9 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/settings").methods("GET"_method)
     ([&]() {
         json j = {
-            {"rteid", application.useRteid},
+            {"clef_id", application.useClefId},
             {"mountpoint", application.mountpoint},
-            {"version", rte::version },
+            {"version", clef::version },
         };
         crow::response response { j.dump() };
         response.set_header("Content-Type", "application/json");
@@ -227,17 +205,17 @@ int main (int argc, char **argv) {
 
         // 1 - Parse information from request to query database
         // All we need to have is the following variables:
-        const int id                { j.value("id", -1) }; // add enum NOT_FOUND instead of -1
-        const std::string rteid     { j.value("rteid", rte::jsonMissingValue) };
-        const std::string path      { j.value("path", rte::jsonMissingValue) };
-        std::string tag             { j.value("tag", rte::jsonMissingValue) };
+        const int id               { j.value("id", -1) }; // add enum NOT_FOUND instead of -1
+        const std::string clefId    { j.value("clef_id", clef::jsonMissingValue) };
+        const std::string path      { j.value("path", clef::jsonMissingValue) };
+        std::string tag             { j.value("tag", clef::jsonMissingValue) };
 
         CROW_LOG_WARNING << logPrefix << "id: " << id;
-        CROW_LOG_WARNING << logPrefix << "rteid: " << rteid;
+        CROW_LOG_WARNING << logPrefix << "clefId: " << clefId;
         CROW_LOG_WARNING << logPrefix << "path: " << path;
         CROW_LOG_WARNING << logPrefix << "tag: " << tag;
 
-        auto handler = Factory::create(getExtension(path));
+        auto handler = Factory::create(clef::utils::getExtension(path));
         auto rtag = handler->resolveTag(tag);
         if (!rtag.has_value()) {
             CROW_LOG_WARNING << logPrefix << rtag.error();
@@ -250,11 +228,11 @@ int main (int argc, char **argv) {
         // 2 - Get information from query
         SQLite::Statement q { db->getDatabase(),
             "SELECT action, old_value, new_value FROM tag_history "
-            "WHERE id >= ? AND (rteid = ? OR path = ?) AND tag = ? "
+            "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ? "
             "ORDER BY id DESC;"
         };
         q.bind(1, id);
-        q.bind(2, rteid);
+        q.bind(2, clefId);
         q.bind(3, path);
         q.bind(4, tag);
 
@@ -279,10 +257,10 @@ int main (int argc, char **argv) {
         if (isGood) {
             SQLite::Statement d { db->getDatabase(),
                 "DELETE FROM tag_history "
-                "WHERE id >= ? AND (rteid = ? OR path = ?) AND tag = ?;"
+                "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ?;"
             };
             d.bind(1, id);
-            d.bind(2, rteid);
+            d.bind(2, clefId);
             d.bind(3, path);
             d.bind(4, tag);
             d.exec();
@@ -300,7 +278,7 @@ int main (int argc, char **argv) {
         if (!application.isMountPoint(filePath)) {
             return crow::response { 500, "LOL NO" };
         }
-        auto handler = Factory::create(getExtension(filePath));
+        auto handler = Factory::create(clef::utils::getExtension(filePath));
         auto picture = handler->getAlbumCover(filePath);
 
         response.body.assign(picture.data.data(), picture.data.size());
@@ -315,8 +293,8 @@ int main (int argc, char **argv) {
         std::string fileIdentifier = req.url_params.get("identifier");
         std::string clause { "path = ?" }; // By default, it searches by path
 
-        if (application.useRteid) // If a user don't mind to use RTEID
-            clause = "rteid = ?";
+        if (application.useClefId) // Match history by Clef_ID when enabled
+            clause = "clefId = ?";
 
         SQLite::Statement query(db->getDatabase(), "SELECT * FROM tag_history WHERE "
             +clause +" ORDER BY changed_at DESC");
@@ -328,7 +306,7 @@ int main (int argc, char **argv) {
             result.push_back({
                 {"id",              query.getColumn(++i).getInt()},
                 {"path",            query.getColumn(++i).getString()},
-                {"rteid",           query.getColumn(++i).getString()},
+                {"clef_id",         query.getColumn(++i).getString()},
                 {"action",          query.getColumn(++i).getString()},
                 {"tag",             query.getColumn(++i).getString()},
                 {"old_value",       query.getColumn(++i).getString()},
@@ -360,18 +338,18 @@ int main (int argc, char **argv) {
         constexpr std::string_view logPrefix { "(api/edittag): " };
         const ordered_json body = json::parse(req.body);
 
-        rte::TagModification tagStruct {
-            .filePath = body.value("path", rte::jsonMissingValue),
-            .fieldType = body.value("tagType", rte::jsonMissingValue),
-            .replaceWhat = { body.value("replaceWhat", rte::jsonMissingValue), String::UTF8 },
-            .replaceWith = { body.value("replaceWith", rte::jsonMissingValue), String::UTF8 },
+        clef::TagModification tagStruct {
+            .filePath = body.value("path", clef::jsonMissingValue),
+            .fieldType = body.value("tagType", clef::jsonMissingValue),
+            .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue), String::UTF8 },
+            .replaceWith = { body.value("replaceWith", clef::jsonMissingValue), String::UTF8 },
         };
         if (!tagStruct.isValid()) {
             CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
             return crow::response { 400, "Request is not valid. Please check sending request" };
         }
-        rte::storage::id id {};
-        const std::string fileExtension { getExtension(tagStruct.filePath) };
+        clef::storage::id id {};
+        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
 
         CROW_LOG_WARNING << "(api/edittag) requested path: " << tagStruct.filePath;
 
@@ -384,8 +362,8 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useRteid) id.rte = generateId();
-        crow::response response(handler->editMusicTags(tagStruct, application.useRteid ? &id.rte : nullptr));
+        if (application.useClefId) id.clefId = clef::utils::generateId();
+        crow::response response(handler->editMusicTags(tagStruct, application.useClefId ? &id.clefId : nullptr));
 
         if (response.code == 200) {
             return db->insertEdit(tagStruct, id);
@@ -401,17 +379,17 @@ int main (int argc, char **argv) {
         constexpr std::string_view logPrefix { "(api/addfieldtag): " };
         const ordered_json body = json::parse(req.body);
 
-        rte::TagModification tagStruct {
-            .filePath = body.value("path", rte::jsonMissingValue),
-            .fieldType = body.value("fieldType", rte::jsonMissingValue),
-            .value = { body.value("value", rte::jsonMissingValue), String::UTF8 }
+        clef::TagModification tagStruct {
+            .filePath = body.value("path", clef::jsonMissingValue),
+            .fieldType = body.value("fieldType", clef::jsonMissingValue),
+            .value = { body.value("value", clef::jsonMissingValue), String::UTF8 }
         };
         if (!tagStruct.isValid()) {
             CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
             return crow::response { 400, "Request is not valid. Please check sending request" };
         }
-        rte::storage::id id {};
-        const std::string fileExtension { getExtension(tagStruct.filePath) };
+        clef::storage::id id {};
+        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
 
         CROW_LOG_WARNING << logPrefix << "requested path: " << tagStruct.filePath;
 
@@ -424,8 +402,8 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useRteid) id.rte = generateId();
-        crow::response response(handler->addMusicTag(tagStruct, application.useRteid ? &id.rte : nullptr));
+        if (application.useClefId) id.clefId = clef::utils::generateId();
+        crow::response response(handler->addMusicTag(tagStruct, application.useClefId ? &id.clefId : nullptr));
 
         if (response.code == 200) {
             return db->insertAdd(tagStruct, id);
@@ -440,18 +418,28 @@ int main (int argc, char **argv) {
         constexpr std::string_view logPrefix { "(api/removefieldtag): " };
         const ordered_json body = json::parse(req.body);
 
-        rte::TagModification tagStruct {
+        clef::TagModification tagStruct {
             .filePath = body.value("path", "none"),
             .fieldType = body.value("fieldType", "none"),
             .value = { body.value("value", "none"), String::UTF8 }
         };
-        rte::storage::id id {};
-        const std::string fileExtension { getExtension(tagStruct.filePath) };
+        clef::storage::id id {};
+        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
 
         CROW_LOG_WARNING << "(api/removefieldtag) requested path: " << tagStruct.filePath;
 
-        if (tagStruct.fieldType == "RTEID" && application.useRteid)
-            return crow::response { 400, "You cannot modify RTEID" };
+        if (application.useClefId) {
+            std::string_view fieldType { tagStruct.fieldType };
+            for (const auto prefix : { clef::music::prefix::mp3, clef::music::prefix::m4a }) {
+                if (fieldType.starts_with(prefix)) {
+                    fieldType.remove_prefix(prefix.size());
+                    break;
+                }
+            }
+            if (String(std::string(fieldType), String::UTF8).upper()
+                == String(std::string(clef::music::tag::clefId), String::UTF8).upper())
+                return crow::response { 400, "You cannot modify Clef_ID" };
+        }
 
         const auto handler = Factory::create(fileExtension);
         const auto rtag = handler->resolveTag(tagStruct.fieldType);
@@ -462,8 +450,8 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useRteid) id.rte = generateId();
-        crow::response response(handler->removeMusicTag(tagStruct, application.useRteid ? &id.rte : nullptr));
+        if (application.useClefId) id.clefId = clef::utils::generateId();
+        crow::response response(handler->removeMusicTag(tagStruct, application.useClefId ? &id.clefId : nullptr));
 
         if (response.code == 200) {
             return db->insertRemove(tagStruct, id);
@@ -588,7 +576,7 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/tag-registry")
     ([]() {
-        using namespace rte::music::tag;
+        using namespace clef::music::tag;
         const auto map = getTagMap();
         if (!map)
             return crow::response { 400, "Tagmap has not been found" };
@@ -605,7 +593,7 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/list-v2").methods("GET"_method)
     ([&] (const crow::request &req){
-        using namespace rte;
+        using namespace clef;
         using SortType = QueryList::SortType;
 
         constexpr std::string_view logPrefix { "(api/list-v2): "};

@@ -2,19 +2,21 @@ import type { TagMap, TagValue } from "./types";
 import { displayTag, stripRawPrefix, type TagIndex } from "./tagRegistry";
 
 /** Program-defined tag the UI never renders as an editable row. */
-const RTEID = "RTEID";
+const CLEF_ID = "CLEF_ID";
+// Older files may still contain this raw tag name.
+const LEGACY_ID = "RTEID";
 
 /**
- * True for the rteid field in any container spelling — `RTEID` on Vorbis,
- * `TXXX:RTEID` on ID3v2, `----:com.apple.iTunes:RTEID` on MP4.
+ * Recognize Clef_ID and the legacy name, including ID3v2 and MP4 prefixes.
  */
-export function isRteid(key: string): boolean {
-  return stripRawPrefix(key).toUpperCase() === RTEID;
+export function isClefId(key: string): boolean {
+  const name = stripRawPrefix(key).toUpperCase();
+  return name === CLEF_ID || name === LEGACY_ID;
 }
 
 /** Tags the UI never renders as editable rows. */
 export function isHiddenTag(key: string): boolean {
-  return isRteid(key);
+  return isClefId(key);
 }
 
 /** Coerce any JSON tag value into a string or string[]. */
@@ -29,8 +31,10 @@ export function firstScalar(value: TagValue | undefined): string {
   return String(value ?? "");
 }
 
-export function readRteid(tags: TagMap): string | null {
-  const key = Object.keys(tags).find(isRteid);
+export function readClefId(tags: TagMap): string | null {
+  const keys = Object.keys(tags);
+  const key = keys.find((key) => stripRawPrefix(key).toUpperCase() === CLEF_ID)
+    ?? keys.find(isClefId);
   if (!key) return null;
   const v = firstScalar(coerce(tags[key]));
   return v ? v : null;

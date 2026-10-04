@@ -1,12 +1,12 @@
 #include "../include/storage.h"
 
-namespace rte::storage {
+namespace clef::storage {
     crow::response Database::insertAdd(const TagModification &tagStruct, const id &idStruct) const {
         int i {};
         SQLite::Statement query(m_database,
-        "INSERT INTO tag_history (rteid, action, path, tag, new_value) "
+        "INSERT INTO tag_history (clefId, action, path, tag, new_value) "
         "VALUES (?, ?, ?, ?, ?)");
-        query.bind(++i, idStruct.rte);
+        query.bind(++i, idStruct.clefId);
         query.bind(++i, add.begin());
         query.bind(++i, tagStruct.filePath);
         query.bind(++i, tagStruct.fieldType);
@@ -19,9 +19,9 @@ namespace rte::storage {
     crow::response Database::insertEdit(const TagModification &tagStruct, const id &idStruct) const {
         int i {};
         SQLite::Statement query(m_database,
-        "INSERT INTO tag_history (rteid, action, path, tag, old_value, new_value) "
+        "INSERT INTO tag_history (clefId, action, path, tag, old_value, new_value) "
         "VALUES (?, ?, ?, ?, ?, ?)");
-        query.bind(++i, idStruct.rte);
+        query.bind(++i, idStruct.clefId);
         query.bind(++i, change.begin());
         query.bind(++i, tagStruct.filePath);
         query.bind(++i, tagStruct.fieldType);
@@ -35,9 +35,9 @@ namespace rte::storage {
     crow::response Database::insertRemove(const TagModification &tagStruct, const id &idStruct) const {
         int i {};
         SQLite::Statement query(m_database,
-            "INSERT INTO tag_history (rteid, action, path, tag, old_value) "
+            "INSERT INTO tag_history (clefId, action, path, tag, old_value) "
         "VALUES (?, ?, ?, ?, ?)");
-        query.bind(++i, idStruct.rte);
+        query.bind(++i, idStruct.clefId);
         query.bind(++i, remove.begin());
         query.bind(++i, tagStruct.filePath);
         query.bind(++i, tagStruct.fieldType);

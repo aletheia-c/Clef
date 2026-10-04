@@ -5,7 +5,7 @@
 #include "oggOpus.h"
 #include "oggTag.h"
 
-using namespace rte::music::handler;
+using namespace clef::music::handler;
 
 std::unique_ptr<Interface> Factory::create(const std::string &extension) {
     if (extension == ".mp3")

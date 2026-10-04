@@ -153,7 +153,7 @@ export function SettingsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { settings, mountPoint, useRteid } = useApp();
+  const { settings, mountPoint, useClefId } = useApp();
   const {
     parallelWrites,
     writeConcurrency,
@@ -184,7 +184,7 @@ export function SettingsDialog({
             <div className="flex flex-col gap-1.5">
               <Row label="Version" value={settings?.version ?? "—"} />
               <Row label="Mount point" value={mountPoint ?? "—"} />
-              <Row label="RTEID mode" value={useRteid ? "Enabled" : "Disabled"} />
+              <Row label="Clef ID mode" value={useClefId ? "Enabled" : "Disabled"} />
             </div>
           </div>
 

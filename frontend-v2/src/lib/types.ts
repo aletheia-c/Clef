@@ -46,7 +46,8 @@ export interface ListV2Response {
 }
 
 export interface AppSettings {
-  rteid: boolean;
+  /** Backend JSON field for Clef_ID mode. */
+  clef_id: boolean;
   mountpoint: string;
   version: string;
 }
@@ -60,7 +61,8 @@ export type HistoryAction = "add" | "remove" | "change";
 export interface HistoryEntry {
   id: number;
   path: string;
-  rteid: string;
+  /** Backend wire name for Clef_ID; also required when replaying an undo. */
+  clef_id: string;
   action: HistoryAction | string;
   tag: string;
   old_value: string;

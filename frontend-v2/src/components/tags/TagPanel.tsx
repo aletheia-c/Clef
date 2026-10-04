@@ -28,7 +28,7 @@ function EmptyPanel({
 export function TagPanel() {
   const { selection } = useExplorer();
   const { setTarget } = useHistoryPanel();
-  const [rteidBadge, setRteidBadge] = React.useState<React.ReactNode>(null);
+  const [clefIdBadge, setClefIdBadge] = React.useState<React.ReactNode>(null);
 
   const musicFiles = React.useMemo(
     () => selection.files.filter((f) => f.type === "music"),
@@ -36,10 +36,10 @@ export function TagPanel() {
   );
   const selectionKey = musicFiles.map((f) => f.path).join("\n");
 
-  // Reset the header RTEID badge whenever the (music) selection changes;
+  // Reset the header Clef_ID badge whenever the (music) selection changes;
   // SingleFileTags re-publishes it when appropriate.
   React.useEffect(() => {
-    setRteidBadge(null);
+    setClefIdBadge(null);
   }, [selectionKey]);
 
   // The history panel only applies to a single music file. For any other
@@ -49,8 +49,8 @@ export function TagPanel() {
     if (musicFiles.length !== 1) setTarget(null);
   }, [musicFiles.length, setTarget]);
 
-  const onRteid = React.useCallback((badge: React.ReactNode) => {
-    setRteidBadge(badge);
+  const onClefId = React.useCallback((badge: React.ReactNode) => {
+    setClefIdBadge(badge);
   }, []);
 
   const status =
@@ -64,7 +64,7 @@ export function TagPanel() {
 
   let body: React.ReactNode;
   if (musicFiles.length === 1) {
-    body = <SingleFileTags key={musicFiles[0].path} filePath={musicFiles[0].path} onRteid={onRteid} />;
+    body = <SingleFileTags key={musicFiles[0].path} filePath={musicFiles[0].path} onClefId={onClefId} />;
   } else if (musicFiles.length > 1) {
     body = <MultiFileTags key={selectionKey} filePaths={musicFiles.map((f) => f.path)} />;
   } else if (selection.files.length > 0) {
@@ -98,7 +98,7 @@ export function TagPanel() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {rteidBadge}
+          {clefIdBadge}
           <HistoryToggle />
         </div>
       </div>

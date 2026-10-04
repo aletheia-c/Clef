@@ -5,7 +5,7 @@
 
 #include "../../include/interface.h"
 
-namespace rte::music::handler {
+namespace clef::music::handler {
     class Factory {
         public:
         static std::unique_ptr<Interface> create(const std::string& extension);

@@ -5,16 +5,23 @@
 #include <flacpicture.h>
 #include <xiphcomment.h>
 
-using namespace rte::music::handler;
-using namespace rte::music::tag;
+using namespace clef::music::handler;
+using namespace clef::music::tag;
 
-void Flac::ensureRteid(std::string *rteid, TagLib::Ogg::XiphComment *tag) {
-    using namespace rte::music::tag;
+void Flac::ensureClefId(std::string *clefId, TagLib::Ogg::XiphComment *tag) {
+    using namespace clef::music::tag;
     using namespace TagLib;
 
-    const auto it = tag->fieldListMap().find(std::string(rteID));
-    if (it != tag->fieldListMap().end()) *rteid = it->second[0].toCString(false);
-    else tag->addField(std::string(rteID), *rteid, true);
+    const auto flMap = tag->fieldListMap();
+    if (const auto clefIdIt = flMap.find(String(tag::clefId.data()).upper()); clefIdIt != flMap.end()) {
+        *clefId = clefIdIt->second[0].toCString(false);
+    } else {
+        if (const auto rteIdIt = flMap.find(tag::rteId.data()); rteIdIt != flMap.end()) {
+            *clefId = rteIdIt->second[0].toCString(false);
+            tag->removeFields(tag::rteId.data());
+        }
+        tag->addField(tag::clefId.data(), *clefId, true);
+    }
 }
 
 std::expected<json, std::string> Flac::listMusicTags(const std::string &filePath) {
@@ -48,8 +55,8 @@ std::expected<json, std::string> Flac::listMusicTags(const std::string &filePath
     return j;
 }
 
-crow::response Flac::removeMusicTag(const TagModification &tagStruct, std::string *rteid) {
-    using namespace rte::music;
+crow::response Flac::removeMusicTag(const TagModification &tagStruct, std::string *clefId) {
+    using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
 
     if (!file.isValid()) {
@@ -90,14 +97,14 @@ crow::response Flac::removeMusicTag(const TagModification &tagStruct, std::strin
         tag->addField(tagStruct.fieldType, s, false);
     }
     CROW_LOG_INFO << __PRETTY_FUNCTION__ << ": " << tagStruct.fieldType << " field was removed!";
-    if (rteid) ensureRteid(rteid, tag);
+    if (clefId) ensureClefId(clefId, tag);
     file.save();
     CROW_LOG_INFO << __PRETTY_FUNCTION__ << ": " << tagStruct.filePath << " saved!";
     return {200, "OK"};
 }
 
-crow::response Flac::addMusicTag(const TagModification &tagStruct, std::string *rteid) {
-    using namespace rte::music;
+crow::response Flac::addMusicTag(const TagModification &tagStruct, std::string *clefId) {
+    using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
     if (!file.isValid()) {
         CROW_LOG_ERROR << "(" << __func__ << ") " << tagStruct.filePath << " is not valid";
@@ -116,14 +123,14 @@ crow::response Flac::addMusicTag(const TagModification &tagStruct, std::string *
     const std::string &raw = resolve.value();
     auto *tag = file.xiphComment();
     tag->addField(raw, tagStruct.value, false);
-    if (rteid) ensureRteid(rteid, tag);
+    if (clefId) ensureClefId(clefId, tag);
     file.save();
     CROW_LOG_INFO << "(" << __func__ << ") " << tagStruct.filePath << " saved!";
     return {200, "File/s saved!"};
 }
 
-crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string *rteid) {
-    using namespace rte::music;
+crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string *clefId) {
+    using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
 
     if (!file.isValid()) {
@@ -164,7 +171,7 @@ crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string
         tag->addField(tagStruct.fieldType, a, false);
         CROW_LOG_INFO << "(FLAC::" << __func__ << ".multi) " << tagStruct.fieldType << " of " << tagStruct.filePath << " has changed to " << a.toCString();
     }
-    if (rteid) ensureRteid(rteid, tag);
+    if (clefId) ensureClefId(clefId, tag);
     file.save();
     CROW_LOG_INFO << "(FLAC::" << __func__ << ".multi) " << tagStruct.filePath << " saved!\n";
 
@@ -172,7 +179,7 @@ crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string
 }
 
 Picture Flac::getAlbumCover(const std::string& filePath) {
-    using namespace rte::music;
+    using namespace clef::music;
 
     TagLib::FLAC::File file { filePath.c_str() };
 

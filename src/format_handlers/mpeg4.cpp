@@ -2,23 +2,35 @@
 #include "../../include/music.h"
 #include <mp4file.h>
 
-using namespace rte::music::handler;
-using namespace rte::music::tag;
+using namespace clef::music::handler;
+using namespace clef::music::tag;
 
-void Mpeg4::ensureRteid(std::string* rteid, TagLib::MP4::Tag* tag) {
-    using namespace rte::music;
+void Mpeg4::ensureClefId(std::string* clefId, TagLib::MP4::Tag* tag) {
+    using namespace clef::music;
     using namespace TagLib;
 
-    const String rteAtom { std::string(prefix::m4a) + tag::rteID.data() };
-    const auto it = tag->itemMap().find(rteAtom);
-    if (it != tag->itemMap().end())
-        *rteid = it->second.toStringList()[0].toCString(false);
-    else
-        tag->setItem(rteAtom, MP4::Item{StringList{String{*rteid, String::UTF8}}});
+    const String clefIdAtom { std::string(prefix::m4a) + tag::clefId.data() };
+    const auto iMap = tag->itemMap();
+    const auto findAtom = [&] (const String &name) {
+        const auto normalized = name.upper();
+        return std::ranges::find_if(iMap, [&](const auto &entry) {
+            return entry.first.upper() == normalized;
+        });
+    };
+    if (const auto clefIdIt = findAtom(clefIdAtom); clefIdIt != iMap.end()) {
+        *clefId = clefIdIt->second.toStringList()[0].toCString(false);
+    } else {
+        const String rteIdAtom { std::string(prefix::m4a) + rteId.data() };
+        if (const auto rteIdIt = findAtom(rteIdAtom); rteIdIt != iMap.end()) {
+            *clefId = rteIdIt->second.toStringList()[0].toCString(false);
+            tag->removeItem(rteIdIt->first);
+        }
+        tag->setItem(clefIdAtom, MP4::Item{StringList{String{*clefId, String::UTF8}}});
+    }
 }
 
 std::expected<json, std::string> Mpeg4::listMusicTags(const std::string &filePath) {
-    using namespace rte::music;
+    using namespace clef::music;
     const TagLib::MP4::File file { filePath.c_str() };
     using Type = TagLib::MP4::Item::Type;
 
@@ -77,8 +89,8 @@ std::expected<json, std::string> Mpeg4::listMusicTags(const std::string &filePat
     return base;
 }
 
-crow::response Mpeg4::removeMusicTag(const TagModification &tagStruct, std::string *rteid) {
-    using namespace rte::music;
+crow::response Mpeg4::removeMusicTag(const TagModification &tagStruct, std::string *clefId) {
+    using namespace clef::music;
     TagLib::MP4::File file { tagStruct.filePath.c_str() };
 
     if (!file.isValid()) {
@@ -95,14 +107,14 @@ crow::response Mpeg4::removeMusicTag(const TagModification &tagStruct, std::stri
 
     tag->removeItem(TagLib::String{tagStruct.fieldType, TagLib::String::UTF8});
 
-    if (rteid) ensureRteid(rteid, tag);
+    if (clefId) ensureClefId(clefId, tag);
     file.save();
 
     return {200, "OK"};
 }
 
-crow::response Mpeg4::addMusicTag(const TagModification &tagStruct, std::string *rteid) {
-    using namespace rte::music;
+crow::response Mpeg4::addMusicTag(const TagModification &tagStruct, std::string *clefId) {
+    using namespace clef::music;
     TagLib::MP4::File file { tagStruct.filePath.c_str() };
 
     if (!file.isValid()) {
@@ -173,7 +185,7 @@ crow::response Mpeg4::addMusicTag(const TagModification &tagStruct, std::string 
             return { 400, "Not implemented method" };
     }
 
-    if (rteid) ensureRteid(rteid, tag);
+    if (clefId) ensureClefId(clefId, tag);
     if (file.save()) {
         CROW_LOG_INFO << __PRETTY_FUNCTION__ << ": " << tagStruct.filePath << " has been saved!";
         return { 200, "OK" };
@@ -183,10 +195,10 @@ crow::response Mpeg4::addMusicTag(const TagModification &tagStruct, std::string 
     }
 }
 
-crow::response Mpeg4::editMusicTags(const TagModification &tagStruct, std::string *rteid) {
+crow::response Mpeg4::editMusicTags(const TagModification &tagStruct, std::string *clefId) {
     auto modified = tagStruct;
     modified.value = tagStruct.replaceWith;
-    return addMusicTag(modified, rteid);
+    return addMusicTag(modified, clefId);
 }
 
 std::expected<std::string, std::string> Mpeg4::resolveTag(const std::string_view tag) {

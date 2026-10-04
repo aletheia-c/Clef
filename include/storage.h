@@ -3,18 +3,18 @@
 
 #include <crow/logging.h>
 
-#include "rte.h"
+#include "clef.h"
 #include "SQLiteCpp/SQLiteCpp.h"
 #include "crow/http_response.h"
 
-namespace rte::storage {
+namespace clef::storage {
     constexpr std::string_view add { "add" };
     constexpr std::string_view change { "change" };
     constexpr std::string_view remove { "remove" };
     constexpr std::string_view rollback { "rollback" };
 
     struct id {
-        std::string rte { "NULL" };
+        std::string clefId { "NULL" };
         std::string action { "NULL" };
     };
 
@@ -30,7 +30,7 @@ namespace rte::storage {
                 CREATE TABLE IF NOT EXISTS tag_history (
                     id           INTEGER PRIMARY KEY AUTOINCREMENT,
                     path         TEXT    NOT NULL,
-                    rteid        TEXT,
+                    clefId       TEXT,
                     action       TEXT    NOT NULL,
                     tag          TEXT    NOT NULL,
                     old_value    TEXT,
@@ -38,6 +38,14 @@ namespace rte::storage {
                     changed_at   TEXT NOT NULL DEFAULT (datetime('now'))
                 )
             )");
+            SQLite::Statement tableInfo { m_database, "PRAGMA table_info(tag_history)" };
+            while (tableInfo.executeStep()) {
+                if (tableInfo.getColumn("name").getString() == "rteid") {
+                    CROW_LOG_WARNING << "Migrating database: renaming column 'rteid' to 'clefId'";
+                    m_database.exec("ALTER TABLE tag_history RENAME COLUMN rteid TO clefId");
+                    CROW_LOG_WARNING << "Database migration completed";
+                }
+            }
         }
 
         SQLite::Database &getDatabase() { return m_database; };

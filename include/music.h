@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "music.h"
-#include "rte.h"
+#include "clef.h"
 
-namespace rte::music {
+namespace clef::music {
     enum class format;
     using json = nlohmann::json;
 
@@ -34,7 +34,8 @@ namespace rte::music {
         };
 
         // Program-defined tags
-        constexpr std::string_view rteID { "RTEID" };
+        constexpr std::string_view clefId { "Clef_ID" };
+        constexpr std::string_view rteId { "RTEID" };
 
         class TagMapping {
         private:
