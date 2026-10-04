@@ -1,9 +1,9 @@
 <img src="frontend/logo.svg" align="right" height="75px"></a>
-# Remote Tag Editor
+# Clef
 
 Work in progress - not stable yet (especially change history), expect some funny bugs.
 
-Remote Tag Editor is a self-hosted music metadata editor that you run with Docker and access from your browser. It supports tag normalization, multi-valued tag, and change history with undo.
+Clef is a self-hosted music metadata editor that you run with Docker and access from your browser. It supports tag normalization, multi-valued tag, and change history with undo.
 
 # Features
 
@@ -16,14 +16,14 @@ Remote Tag Editor is a self-hosted music metadata editor that you run with Docke
 # Building
 
 ```bash
-git pull https://github.com/myooker/remote-tag-editor.git
-cd remote-tag-editor
+git pull https://github.com/myooker/Clef.git
+cd Clef
 ```
 
 Example `docker-compose.yml`:
 ```yaml
 services:
-  remote-tag-editor:
+  Clef:
     build:
       context: .
       dockerfile: docker/Dockerfile
