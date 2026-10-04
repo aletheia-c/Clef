@@ -1,4 +1,4 @@
-<img src="frontend/logo.svg" align="right" height="75px"></a>
+<img src="frontend-v2/public/logo.svg" align="right" height="75px"></a>
 # Clef
 
 Work in progress - not stable yet (especially change history), expect some funny bugs.
@@ -41,9 +41,11 @@ docker compose up -d
 
 The application should be accessible on `localhost:8080`.
 
-# About AI
+# About AI usage
 
-Frontend is fully written by an AI. Please read [this page](frontend/README.md).
+The frontend was built entirely with AI. At the moment, I’m not interested in learning frontend web technologies, so I rely on AI to handle that part.
+
+Please treat the frontend as a simple demo interface - the main focus of this project is the backend and its functionality.
 
 # Screenshots
 
