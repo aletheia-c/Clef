@@ -1,7 +1,12 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "extends": "./node_modules/gts/tsconfig-google.json",
+  "compilerOptions": {
+    "composite": false,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src/**/*.ts", "vite.config.mts"]
 }
