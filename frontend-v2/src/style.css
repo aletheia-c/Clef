@@ -1,20 +1,34 @@
 :root {
   color-scheme: light dark;
   --separator: color-mix(in srgb, CanvasText 15%, transparent);
+  --hover: color-mix(in srgb, CanvasText 7%, transparent);
   font: 13px/1.4 system-ui, sans-serif;
 }
 
 body {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
   height: 100vh;
   margin: 0;
   background: Canvas;
   color: CanvasText;
 }
 
+svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--separator);
 }
@@ -25,7 +39,133 @@ body {
 }
 
 h1 {
-  margin: 0;
+  margin: 0 12px 0 6px;
   font-size: inherit;
   font-weight: 600;
+}
+
+.toolbar button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+}
+
+.toolbar button:hover:enabled {
+  background: var(--hover);
+}
+
+.toolbar button:disabled {
+  color: GrayText;
+}
+
+#path-form {
+  display: flex;
+  flex: 1;
+  margin-left: 6px;
+}
+
+#path {
+  flex: 1;
+  padding: 3px 8px;
+  font: inherit;
+}
+
+#error {
+  margin: 0;
+  padding: 6px 8px;
+  background: color-mix(in srgb, #d13438 18%, Canvas);
+}
+
+#listing {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--separator);
+  background: Canvas;
+  font-weight: normal;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th > button,
+th > span {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
+th > button:hover {
+  background: var(--hover);
+}
+
+th[aria-sort='ascending'] > button::after {
+  content: ' \25B4';
+}
+
+th[aria-sort='descending'] > button::after {
+  content: ' \25BE';
+}
+
+th.name {
+  width: 100%;
+}
+
+td {
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+td:first-child svg {
+  margin-right: 6px;
+  vertical-align: -3px;
+}
+
+th.size,
+td:last-child {
+  text-align: right;
+}
+
+tbody tr:hover {
+  background: var(--hover);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+#sentinel {
+  height: 1px;
+}
+
+.status {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--separator);
 }

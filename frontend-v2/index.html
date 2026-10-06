@@ -7,10 +7,56 @@
     <title>Clef</title>
   </head>
   <body>
+    <svg hidden>
+      <symbol id="icon-up" viewBox="0 0 16 16">
+        <path d="M8 13.5v-11M3.5 7 8 2.5 12.5 7"/>
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 16 16">
+        <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/>
+      </symbol>
+      <symbol id="icon-folder" viewBox="0 0 16 16">
+        <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z"/>
+      </symbol>
+      <symbol id="icon-file" viewBox="0 0 16 16">
+        <path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3"/>
+      </symbol>
+    </svg>
+
     <header class="toolbar">
       <img class="logo" src="./logo.svg" alt="">
       <h1>Clef</h1>
+      <button id="up" type="button" title="Up" aria-label="Up" disabled>
+        <svg aria-hidden="true"><use href="#icon-up"/></svg>
+      </button>
+      <button id="refresh" type="button" title="Refresh" aria-label="Refresh">
+        <svg aria-hidden="true"><use href="#icon-refresh"/></svg>
+      </button>
+      <form id="path-form">
+        <input id="path" type="text" aria-label="Path" spellcheck="false" autocomplete="off">
+      </form>
     </header>
+
+    <p id="error" role="alert" hidden></p>
+
+    <main id="listing">
+      <table>
+        <thead>
+          <tr>
+            <th class="name" data-sort="name"><button type="button">Name</button></th>
+            <th data-sort="type"><button type="button">Type</button></th>
+            <th><span>Extension</span></th>
+            <th class="size" data-sort="size"><button type="button">Size</button></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="sentinel"></div>
+    </main>
+
+    <footer class="status">
+      <span id="loading" hidden>Loading…</span>
+      <span id="count"></span>
+    </footer>
 
     <script type="module" src="./src/main.ts"></script>
   </body>

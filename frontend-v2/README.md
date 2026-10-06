@@ -9,4 +9,8 @@ every `/api` request will be forwarded to it.
 API_TARGET=http://localhost:8080
 ```
 
+for testing purposes, `npm run dev:mock` serves a fake music library kept in
+memory. It answers like the real API, simulating a short delay, and lists enough
+files to test paging.
+
 buildable with npm, the result goes to `dist/`, which `docker/Dockerfile` copies into the image.
