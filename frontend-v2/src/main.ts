@@ -1,19 +1,33 @@
 import './style.css';
 import {DirectoryView} from './directory_view';
 import {HttpListingService} from './http_listing_service';
+import {HttpTagService} from './http_tag_service';
 import type {ListingService} from './listing';
+import {TagPanel} from './tag_panel';
+import type {TagService} from './tags';
 
-async function createListingService(): Promise<ListingService> {
+interface Services {
+  listing: ListingService;
+  tags: TagService;
+}
+
+async function createServices(): Promise<Services> {
   if (import.meta.env.VITE_USE_MOCK === 'true') {
-    const {MockListingService} = await import('./mock_listing_service');
-    return new MockListingService();
+    const [{MockListingService}, {MockTagService}] = await Promise.all([
+      import('./mock_listing_service'),
+      import('./mock_tag_service'),
+    ]);
+    return {listing: new MockListingService(), tags: new MockTagService()};
   }
-  return new HttpListingService();
+  return {listing: new HttpListingService(), tags: new HttpTagService()};
 }
 
 async function main(): Promise<void> {
-  const service = await createListingService();
-  const view = new DirectoryView(service, await service.mountPoint());
+  const {listing, tags} = await createServices();
+  const panel = new TagPanel(tags);
+  const view = new DirectoryView(listing, await listing.mountPoint(), file =>
+    panel.show(file),
+  );
   view.start();
 }
 

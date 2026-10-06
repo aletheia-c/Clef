@@ -1,4 +1,5 @@
 import {DirectoryModel} from './directory_model';
+import {byId} from './dom';
 import type {Entity, EntityType, ListingService, SortKey} from './listing';
 
 const APP_NAME = 'Clef';
@@ -28,6 +29,11 @@ const SIZE_FORMATS = [
     }),
 );
 
+export interface SelectedFile {
+  path: string;
+  entity: Entity;
+}
+
 export class DirectoryView {
   private readonly upButton = byId('up', HTMLButtonElement);
   private readonly refreshButton = byId('refresh', HTMLButtonElement);
@@ -44,10 +50,12 @@ export class DirectoryView {
 
   private readonly model: DirectoryModel;
   private replaceHistory = true;
+  private selectedRow?: HTMLTableRowElement;
 
   constructor(
     service: ListingService,
     private readonly rootPath: string,
+    private readonly onSelect: (file: SelectedFile | null) => void,
   ) {
     this.model = new DirectoryModel(service, {
       reset: () => this.handleReset(),
@@ -109,6 +117,10 @@ export class DirectoryView {
     this.upButton.disabled = path === this.rootPath;
     this.errorBanner.hidden = true;
 
+    if (this.selectedRow) {
+      this.selectedRow = undefined;
+      this.onSelect(null);
+    }
     this.rows.replaceChildren(
       ...this.model.entities.map(e => this.renderRow(e)),
     );
@@ -137,7 +149,14 @@ export class DirectoryView {
   }
 
   private handleRowClick(event: MouseEvent): void {
-    const link = (event.target as Element).closest('a');
+    const target = event.target as Element;
+    const fileButton = target.closest('button');
+    if (fileButton) {
+      this.select(fileButton.closest('tr')!);
+      return;
+    }
+
+    const link = target.closest('a');
     if (
       !link ||
       event.button !== 0 ||
@@ -152,6 +171,15 @@ export class DirectoryView {
       event.preventDefault();
       this.model.load(path);
     }
+  }
+
+  private select(row: HTMLTableRowElement): void {
+    this.selectedRow?.classList.remove('selected');
+    row.classList.add('selected');
+    this.selectedRow = row;
+
+    const entity = this.model.entities[row.sectionRowIndex];
+    this.onSelect({path: `${this.model.path}/${entity.name}`, entity});
   }
 
   private sortBy(key: SortKey): void {
@@ -203,7 +231,10 @@ export class DirectoryView {
       link.textContent = entity.name;
       nameCell.append(link);
     } else {
-      nameCell.append(entity.name);
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = entity.name;
+      nameCell.append(button);
     }
 
     row.insertCell().textContent = TYPE_NAMES[entity.type];
@@ -211,14 +242,6 @@ export class DirectoryView {
     row.insertCell().textContent = isDirectory ? '' : formatSize(entity.size);
     return row;
   }
-}
-
-function byId<T extends HTMLElement>(id: string, type: {new (): T}): T {
-  const element = document.getElementById(id);
-  if (!(element instanceof type)) {
-    throw new Error(`Missing element #${id}`);
-  }
-  return element;
 }
 
 function icon(name: string): SVGSVGElement {
