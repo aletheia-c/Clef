@@ -3,6 +3,7 @@ import type {Entity, EntityType, ListingService, SortKey} from './listing';
 
 const APP_NAME = 'Clef';
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const PRELOAD_MARGIN_PX = 200;
 
 const TYPE_NAMES: Record<EntityType, string> = {
   directory: 'Folder',
@@ -42,7 +43,6 @@ export class DirectoryView {
     document.querySelectorAll<HTMLTableCellElement>('th[data-sort]');
 
   private readonly model: DirectoryModel;
-  private sentinelVisible = false;
   private replaceHistory = true;
 
   constructor(
@@ -81,13 +81,10 @@ export class DirectoryView {
       this.model.load(pathFromUrl(location.href) ?? this.rootPath);
     });
 
-    const observer = new IntersectionObserver(
-      entries => {
-        this.sentinelVisible = entries[entries.length - 1].isIntersecting;
-        this.fetchMoreIfNeeded();
-      },
-      {root: this.listing, rootMargin: '200px'},
-    );
+    const observer = new IntersectionObserver(() => this.fetchMoreIfNeeded(), {
+      root: this.listing,
+      rootMargin: `${PRELOAD_MARGIN_PX}px`,
+    });
     observer.observe(this.sentinel);
   }
 
@@ -175,7 +172,9 @@ export class DirectoryView {
   }
 
   private fetchMoreIfNeeded(): void {
-    if (this.sentinelVisible) {
+    const sentinelTop = this.sentinel.getBoundingClientRect().top;
+    const listingBottom = this.listing.getBoundingClientRect().bottom;
+    if (sentinelTop <= listingBottom + PRELOAD_MARGIN_PX) {
       this.model.fetchMore();
     }
   }
