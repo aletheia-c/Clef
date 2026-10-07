@@ -10,4 +10,12 @@ export const TAGGABLE_EXTENSIONS = new Set([
 
 export interface TagService {
   tags(path: string, signal: AbortSignal): Promise<TagMap>;
+  editValue(
+    path: string,
+    tag: string,
+    oldValue: string,
+    newValue: string,
+  ): Promise<void>;
+  addValue(path: string, tag: string, value: string): Promise<void>;
+  removeValue(path: string, tag: string, value: string): Promise<void>;
 }

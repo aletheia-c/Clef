@@ -56,8 +56,25 @@
     <aside id="tag-panel" hidden>
       <h2 id="tag-file"></h2>
       <p id="tag-status" hidden></p>
-      <dl id="tag-list"></dl>
+      <fieldset id="tag-editor" hidden>
+        <dl id="tag-list"></dl>
+        <form id="tag-add">
+          <input id="tag-add-name" type="text" placeholder="Tag" aria-label="Tag" required>
+          <input id="tag-add-value" type="text" placeholder="Value" aria-label="Value" required>
+          <button type="submit">Add</button>
+        </form>
+      </fieldset>
     </aside>
+
+    <dialog id="confirm">
+      <form method="dialog">
+        <p id="confirm-message"></p>
+        <div class="dialog-buttons">
+          <button value="cancel" autofocus>Cancel</button>
+          <button id="confirm-ok" value="ok"></button>
+        </div>
+      </form>
+    </dialog>
 
     <footer class="status">
       <span id="loading" hidden>Loading…</span>

@@ -72,8 +72,10 @@ h1 {
   margin-left: 6px;
 }
 
-#path {
+#path,
+#tag-panel input {
   flex: 1;
+  min-width: 0;
   padding: 3px 8px;
   font: inherit;
 }
@@ -198,6 +200,13 @@ td > button:hover {
   color: GrayText;
 }
 
+#tag-editor {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 #tag-list {
   margin: 0;
 }
@@ -209,8 +218,73 @@ dt {
 }
 
 dd {
-  margin: 0;
+  display: flex;
+  gap: 2px;
+  margin: 2px 0 0;
+}
+
+dd > button {
+  width: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: GrayText;
+  font: inherit;
+}
+
+dd > button:hover:enabled {
+  background: var(--hover);
+  color: #d13438;
+}
+
+#tag-add {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+
+#tag-add > button {
+  padding: 3px 10px;
+  font: inherit;
+}
+
+dialog {
+  max-width: 360px;
+  padding: 16px;
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+#confirm-message {
+  margin: 0 0 16px;
   overflow-wrap: anywhere;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dialog-buttons > button {
+  padding: 4px 12px;
+  font: inherit;
+}
+
+#confirm-ok {
+  border: 1px solid #d13438;
+  border-radius: 3px;
+  background: #d13438;
+  color: white;
 }
 
 .status {
