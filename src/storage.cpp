@@ -1,4 +1,5 @@
 #include "../include/storage.h"
+#include "../include/clef.h"
 
 namespace clef::storage {
     crow::response Database::insertAdd(const TagModification &tagStruct, const id &idStruct) const {

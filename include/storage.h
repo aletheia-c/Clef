@@ -3,9 +3,10 @@
 
 #include <crow/logging.h>
 
-#include "clef.h"
 #include "SQLiteCpp/SQLiteCpp.h"
 #include "crow/http_response.h"
+
+namespace clef { struct TagModification; }
 
 namespace clef::storage {
     constexpr std::string_view add { "add" };
@@ -48,7 +49,7 @@ namespace clef::storage {
             }
         }
 
-        SQLite::Database &getDatabase() { return m_database; };
+        SQLite::Database &getDatabase() { return m_database; }
         crow::response insertAdd(const TagModification &tagStruct, const id &idStruct) const;
         crow::response insertRemove(const TagModification &tagStruct, const id &idStruct) const;
         crow::response insertEdit(const TagModification &tagStruct, const id &idStruct) const;

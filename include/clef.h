@@ -12,7 +12,7 @@ namespace clef {
 
     constexpr std::string_view version { "0.0.1" };
     constexpr std::string_view name { "Clef" };
-    constexpr std::string jsonMissingValue { "_json_none" };
+    constexpr std::string_view jsonMissingValue { "__json_missing_value" };
 
     enum class EntityType {
         directory,
@@ -77,11 +77,6 @@ namespace clef {
         }
     };
 
-    struct FilePath {
-        fs::path path {};
-        std::string extension { path.extension() };
-    };
-
     struct TagModification {
         std::string filePath       { "none" };
         std::string fieldType      { "none" };
@@ -92,12 +87,12 @@ namespace clef {
         /**
          * @brief This function validates whenever TagModification struct is valid.
          *
-         * If one of TagModification members is not valid (equal to "_json_none"), then a struct is not valid.
+         * If one of TagModification members is not valid (equal to "__json_missing_value"), then a struct is not valid.
          *
-         * @return True if a struct doesn't have "_json_none" members, otherwise false.
+         * @return True if a struct doesn't have "__json_missing_value" members, otherwise false.
          */
         [[nodiscard]] bool isValid() const {
-            if (const std::string &x { jsonMissingValue };
+            if (const std::string &x { jsonMissingValue.data() };
                 filePath == x || fieldType == x || replaceWhat == x || replaceWith == x || value == x)
                 return false;
             return true;
