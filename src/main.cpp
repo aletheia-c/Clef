@@ -70,10 +70,11 @@ static ordered_json buildDirectoryTree(const std::string &basePath, const clef::
 
     for (const auto &e : fs::directory_iterator(path)) {
         if (e.is_symlink()) continue;
+        bool isDirectory { e.is_directory() };
         std::string filename { e.path().filename() };
         std::string ext { e.path().extension() };
-        EntityType type { fileExtensionToEntityType(ext) };
-        if (e.is_directory()) {
+        EntityType type { isDirectory ? EntityType::directory : fileExtensionToEntityType(ext) };
+        if (isDirectory) {
             entities.push_back({
                 .name = std::move(filename), .type = EntityType::directory
             });
@@ -339,10 +340,10 @@ int main (int argc, char **argv) {
         const ordered_json body = json::parse(req.body);
 
         clef::TagModification tagStruct {
-            .filePath = body.value("path", clef::jsonMissingValue),
-            .fieldType = body.value("tagType", clef::jsonMissingValue),
-            .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue), String::UTF8 },
-            .replaceWith = { body.value("replaceWith", clef::jsonMissingValue), String::UTF8 },
+            .filePath = body.value("path", clef::jsonMissingValue.data()),
+            .fieldType = body.value("tagType", clef::jsonMissingValue.data()),
+            .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue.data()), String::UTF8 },
+            .replaceWith = { body.value("replaceWith", clef::jsonMissingValue.data()), String::UTF8 },
         };
         if (!tagStruct.isValid()) {
             CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
@@ -380,9 +381,9 @@ int main (int argc, char **argv) {
         const ordered_json body = json::parse(req.body);
 
         clef::TagModification tagStruct {
-            .filePath = body.value("path", clef::jsonMissingValue),
-            .fieldType = body.value("fieldType", clef::jsonMissingValue),
-            .value = { body.value("value", clef::jsonMissingValue), String::UTF8 }
+            .filePath = body.value("path", clef::jsonMissingValue.data()),
+            .fieldType = body.value("fieldType", clef::jsonMissingValue.data()),
+            .value = { body.value("value", clef::jsonMissingValue.data()), String::UTF8 }
         };
         if (!tagStruct.isValid()) {
             CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";

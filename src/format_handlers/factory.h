@@ -8,7 +8,7 @@
 namespace clef::music::handler {
     class Factory {
         public:
-        static std::unique_ptr<Interface> create(const std::string& extension);
+        static std::unique_ptr<Interface> create(std::string_view extension);
     };
 }
 

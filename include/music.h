@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "music.h"
-#include "clef.h"
 
 namespace clef::music {
     enum class format;
@@ -70,9 +69,9 @@ namespace clef::music {
         public:
             explicit TagMapping(std::ifstream f)
                 : m_map (json::parse(f)),
-                  m_amap (buildAliasMap(m_map)),
-                  m_aumap (buildUnorderedAliasMap()),
-                  m_maphash (std::hash<std::string>{}(m_map.dump())) {
+                m_amap (buildAliasMap(m_map)),
+                m_aumap (buildUnorderedAliasMap()),
+                m_maphash (std::hash<std::string>{}(m_map.dump())) {
             }
 
             std::size_t getMapHash() const { return m_maphash; }

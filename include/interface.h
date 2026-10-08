@@ -13,9 +13,8 @@ using json = nlohmann::json;
 
 namespace clef::music::handler {
     class Interface {
-        public:
-        virtual
-        ~Interface() = default;
+    public:
+        virtual ~Interface() = default;
 
         virtual std::expected<json, std::string> listMusicTags(const std::string& filePath) = 0;
         virtual crow::response removeMusicTag(const TagModification& tagStruct, std::string* clefId = nullptr) = 0;
