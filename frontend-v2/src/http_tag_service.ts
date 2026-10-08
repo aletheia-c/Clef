@@ -2,14 +2,25 @@ import {getJson, postJson} from './http';
 import type {TagAliases} from './tag_registry';
 import type {TagMap, TagService} from './tags';
 
+type TagValue = string[] | string | number | boolean;
+
 export class HttpTagService implements TagService {
   registry(): Promise<TagAliases> {
     return getJson<TagAliases>('/api/tag-registry');
   }
 
-  tags(path: string, signal: AbortSignal): Promise<TagMap> {
+  async tags(path: string, signal: AbortSignal): Promise<TagMap> {
     const params = new URLSearchParams({path});
-    return getJson<TagMap>(`/api/tag?${params}`, signal);
+    const tags = await getJson<Record<string, TagValue>>(
+      `/api/tag?${params}`,
+      signal,
+    );
+    return Object.fromEntries(
+      Object.entries(tags).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value : [String(value)],
+      ]),
+    );
   }
 
   editValue(
