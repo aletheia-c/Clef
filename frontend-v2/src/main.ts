@@ -4,6 +4,7 @@ import {HttpListingService} from './http_listing_service';
 import {HttpTagService} from './http_tag_service';
 import type {ListingService} from './listing';
 import {TagPanel} from './tag_panel';
+import {TagRegistry} from './tag_registry';
 import type {TagService} from './tags';
 
 interface Services {
@@ -24,10 +25,12 @@ async function createServices(): Promise<Services> {
 
 async function main(): Promise<void> {
   const {listing, tags} = await createServices();
-  const panel = new TagPanel(tags);
-  const view = new DirectoryView(listing, await listing.mountPoint(), file =>
-    panel.show(file),
-  );
+  const [rootPath, aliases] = await Promise.all([
+    listing.mountPoint(),
+    tags.registry().catch(() => undefined),
+  ]);
+  const panel = new TagPanel(tags, new TagRegistry(aliases));
+  const view = new DirectoryView(listing, rootPath, file => panel.show(file));
   view.start();
 }
 

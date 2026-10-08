@@ -1,3 +1,5 @@
+import type {TagAliases} from './tag_registry';
+
 export type TagMap = Record<string, string[]>;
 
 export const TAGGABLE_EXTENSIONS = new Set([
@@ -9,6 +11,7 @@ export const TAGGABLE_EXTENSIONS = new Set([
 ]);
 
 export interface TagService {
+  registry(): Promise<TagAliases>;
   tags(path: string, signal: AbortSignal): Promise<TagMap>;
   editValue(
     path: string,

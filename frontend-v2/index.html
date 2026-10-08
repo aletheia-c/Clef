@@ -59,7 +59,8 @@
       <fieldset id="tag-editor" hidden>
         <dl id="tag-list"></dl>
         <form id="tag-add">
-          <input id="tag-add-name" type="text" placeholder="Tag" aria-label="Tag" required>
+          <input id="tag-add-name" type="text" placeholder="Tag" aria-label="Tag" list="tag-names" required>
+          <datalist id="tag-names"></datalist>
           <input id="tag-add-value" type="text" placeholder="Value" aria-label="Value" required>
           <button type="submit">Add</button>
         </form>

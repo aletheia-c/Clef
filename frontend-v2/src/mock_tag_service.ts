@@ -1,9 +1,33 @@
+import type {TagAliases} from './tag_registry';
 import type {TagMap, TagService} from './tags';
 
 const LATENCY_MS = 250;
 
+const MAPPING: Record<string, {id3v2: string; vorbis: string}> = {
+  Album: {id3v2: 'TALB', vorbis: 'ALBUM'},
+  Artist: {id3v2: 'TPE1', vorbis: 'ARTIST'},
+  Artists: {id3v2: 'TXXX:Artists', vorbis: 'ARTISTS'},
+  Comment: {id3v2: 'COMM', vorbis: 'COMMENT'},
+  'Disc Number': {id3v2: 'TPOS', vorbis: 'DISCNUMBER'},
+  Genre: {id3v2: 'TCON', vorbis: 'GENRE'},
+  Mood: {id3v2: 'TMOO', vorbis: 'MOOD'},
+  'Recording Date': {id3v2: 'TDRC', vorbis: 'DATE'},
+  Title: {id3v2: 'TIT2', vorbis: 'TITLE'},
+  'Track Number': {id3v2: 'TRCK', vorbis: 'TRACKNUMBER'},
+};
+
 export class MockTagService implements TagService {
   private readonly files = new Map<string, TagMap>();
+
+  async registry(): Promise<TagAliases> {
+    await delay(LATENCY_MS);
+    return Object.fromEntries(
+      Object.entries(MAPPING).map(([name, raw]) => [
+        name,
+        [raw.id3v2, raw.vorbis],
+      ]),
+    );
+  }
 
   async tags(path: string, signal: AbortSignal): Promise<TagMap> {
     await delay(LATENCY_MS, signal);
@@ -23,8 +47,9 @@ export class MockTagService implements TagService {
 
   async addValue(path: string, tag: string, value: string): Promise<void> {
     await delay(LATENCY_MS);
+    const raw = MAPPING[tag]?.vorbis ?? tag;
     const tags = this.tagsOf(path);
-    tags[tag] = [...(tags[tag] ?? []), value];
+    tags[raw] = [...(tags[raw] ?? []), value];
   }
 
   async removeValue(path: string, tag: string, value: string): Promise<void> {

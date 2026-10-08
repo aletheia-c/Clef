@@ -1,6 +1,7 @@
 import {confirmAction} from './confirm_dialog';
 import type {SelectedFile} from './directory_view';
 import {byId} from './dom';
+import type {TagRegistry} from './tag_registry';
 import {TAGGABLE_EXTENSIONS, type TagMap, type TagService} from './tags';
 
 interface LoadedTags {
@@ -17,10 +18,15 @@ export class TagPanel {
   private readonly addForm = byId('tag-add', HTMLFormElement);
   private readonly addName = byId('tag-add-name', HTMLInputElement);
   private readonly addValue = byId('tag-add-value', HTMLInputElement);
+  private readonly tagNames = byId('tag-names', HTMLDataListElement);
   private pending?: AbortController;
   private current?: LoadedTags;
 
-  constructor(private readonly service: TagService) {
+  constructor(
+    private readonly service: TagService,
+    private readonly registry: TagRegistry,
+  ) {
+    this.tagNames.append(...registry.names.map(name => new Option(name)));
     this.list.addEventListener('change', event => {
       void this.handleValueChange(event.target as HTMLInputElement);
     });
@@ -82,15 +88,18 @@ export class TagPanel {
 
   private render(): void {
     const tags = this.current!.tags;
-    const keys = Object.keys(tags).sort();
+    const keys = Object.keys(tags)
+      .map(key => ({key, name: this.registry.nameOf(key)}))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     this.list.replaceChildren();
-    for (const key of keys) {
+    for (const {key, name} of keys) {
       const term = document.createElement('dt');
-      term.textContent = key;
+      term.textContent = name;
+      term.title = key;
       this.list.append(term);
       for (const value of tags[key]) {
-        this.list.append(renderValue(key, value));
+        this.list.append(renderValue(key, name, value));
       }
     }
 
@@ -105,7 +114,7 @@ export class TagPanel {
     const newValue = input.value;
 
     if (newValue.trim() === '') {
-      if (await confirmRemove(tag, oldValue)) {
+      if (await confirmRemove(this.registry.nameOf(tag), oldValue)) {
         await this.save(path => this.service.removeValue(path, tag, oldValue));
       } else {
         input.value = oldValue;
@@ -121,7 +130,7 @@ export class TagPanel {
     const value = button.closest('dd')!;
     const tag = value.dataset.tag!;
     const text = value.querySelector('input')!.defaultValue;
-    if (await confirmRemove(tag, text)) {
+    if (await confirmRemove(this.registry.nameOf(tag), text)) {
       await this.save(path => this.service.removeValue(path, tag, text));
     }
   }
@@ -173,27 +182,27 @@ export class TagPanel {
   }
 }
 
-function renderValue(tag: string, value: string): HTMLElement {
+function renderValue(tag: string, name: string, value: string): HTMLElement {
   const description = document.createElement('dd');
   description.dataset.tag = tag;
 
   const input = document.createElement('input');
   input.type = 'text';
   input.defaultValue = value;
-  input.setAttribute('aria-label', tag);
+  input.setAttribute('aria-label', name);
 
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.textContent = '×';
   remove.title = 'Remove';
-  remove.setAttribute('aria-label', `Remove ${value} from ${tag}`);
+  remove.setAttribute('aria-label', `Remove ${value} from ${name}`);
 
   description.append(input, remove);
   return description;
 }
 
-function confirmRemove(tag: string, value: string): Promise<boolean> {
-  return confirmAction(`Remove "${value}" from ${tag}?`, 'Remove');
+function confirmRemove(name: string, value: string): Promise<boolean> {
+  return confirmAction(`Remove "${value}" from ${name}?`, 'Remove');
 }
 
 function messageOf(error: unknown): string {
