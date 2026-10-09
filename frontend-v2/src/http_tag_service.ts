@@ -23,6 +23,10 @@ export class HttpTagService implements TagService {
     );
   }
 
+  coverUrl(path: string): string {
+    return `/api/getalbumcover?${new URLSearchParams({path})}`;
+  }
+
   editValue(
     path: string,
     tag: string,

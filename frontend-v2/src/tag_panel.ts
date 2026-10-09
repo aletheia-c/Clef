@@ -13,6 +13,9 @@ interface LoadedTags {
 export class TagPanel {
   private readonly panel = byId('tag-panel', HTMLElement);
   private readonly fileName = byId('tag-file', HTMLHeadingElement);
+  private readonly cover = byId('tag-cover', HTMLElement);
+  private readonly coverImage = byId('tag-cover-image', HTMLImageElement);
+  private readonly coverMissing = byId('tag-cover-missing', HTMLElement);
   private readonly status = byId('tag-status', HTMLParagraphElement);
   private readonly editor = byId('tag-editor', HTMLFieldSetElement);
   private readonly list = byId('tag-list', HTMLDListElement);
@@ -28,6 +31,10 @@ export class TagPanel {
     private readonly registry: TagRegistry,
   ) {
     this.tagNames.append(...registry.names.map(name => new Option(name)));
+    this.coverImage.addEventListener('error', () => {
+      this.coverImage.hidden = true;
+      this.coverMissing.hidden = false;
+    });
     this.list.addEventListener('change', event => {
       void this.handleValueChange(event.target as HTMLInputElement);
     });
@@ -49,6 +56,8 @@ export class TagPanel {
     this.current = undefined;
     this.editor.hidden = true;
     this.addForm.reset();
+    this.cover.hidden = true;
+    this.coverImage.removeAttribute('src');
 
     if (files.length === 0) {
       this.panel.hidden = true;
@@ -65,7 +74,17 @@ export class TagPanel {
       this.setStatus(whyNotTaggable(files));
       return;
     }
+    if (files.length === 1) {
+      this.showCover(files[0].path);
+    }
     void this.load(taggable.map(file => file.path));
+  }
+
+  private showCover(path: string): void {
+    this.coverImage.hidden = false;
+    this.coverMissing.hidden = true;
+    this.coverImage.src = this.service.coverUrl(path);
+    this.cover.hidden = false;
   }
 
   private async load(paths: string[], notice = ''): Promise<void> {

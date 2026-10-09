@@ -13,6 +13,7 @@ export const TAGGABLE_EXTENSIONS = new Set([
 export interface TagService {
   registry(): Promise<TagAliases>;
   tags(path: string, signal: AbortSignal): Promise<TagMap>;
+  coverUrl(path: string): string;
   editValue(
     path: string,
     tag: string,

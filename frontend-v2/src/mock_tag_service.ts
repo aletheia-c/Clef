@@ -34,6 +34,23 @@ export class MockTagService implements TagService {
     return structuredClone(this.tagsOf(path));
   }
 
+  coverUrl(path: string): string {
+    const [artist, album] = path.split('/').slice(-3);
+    if (album === 'Album 2') {
+      return 'data:,';
+    }
+    const hue = [...artist, ...album].reduce(
+      (sum, c) => sum + c.charCodeAt(0),
+      0,
+    );
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220">' +
+      `<rect width="220" height="220" fill="hsl(${hue % 360} 45% 35%)"/>` +
+      '<text x="110" y="117" fill="white" font-family="sans-serif" ' +
+      `font-size="20" text-anchor="middle">${album}</text></svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+
   async editValue(
     path: string,
     tag: string,
