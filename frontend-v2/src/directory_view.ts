@@ -50,12 +50,12 @@ export class DirectoryView {
 
   private readonly model: DirectoryModel;
   private replaceHistory = true;
-  private selectedRow?: HTMLTableRowElement;
+  private anchorRow?: HTMLTableRowElement;
 
   constructor(
     service: ListingService,
     private readonly rootPath: string,
-    private readonly onSelect: (file: SelectedFile | null) => void,
+    private readonly onSelect: (files: SelectedFile[]) => void,
   ) {
     this.model = new DirectoryModel(service, {
       reset: () => this.handleReset(),
@@ -84,6 +84,11 @@ export class DirectoryView {
     }
 
     this.rows.addEventListener('click', event => this.handleRowClick(event));
+    this.rows.addEventListener('mousedown', event => {
+      if (event.shiftKey) {
+        event.preventDefault();
+      }
+    });
     window.addEventListener('popstate', () => {
       this.replaceHistory = true;
       this.model.load(pathFromUrl(location.href) ?? this.rootPath);
@@ -117,16 +122,17 @@ export class DirectoryView {
     this.upButton.disabled = path === this.rootPath;
     this.errorBanner.hidden = true;
 
-    if (this.selectedRow) {
-      this.selectedRow = undefined;
-      this.onSelect(null);
-    }
+    const hadSelection = this.selectedFiles().length > 0;
+    this.anchorRow = undefined;
     this.rows.replaceChildren(
       ...this.model.entities.map(e => this.renderRow(e)),
     );
     this.listing.scrollTop = 0;
     this.updateCount();
     this.fetchMoreIfNeeded();
+    if (hadSelection) {
+      this.onSelect([]);
+    }
   }
 
   private handleRowsAppended(first: number): void {
@@ -152,7 +158,7 @@ export class DirectoryView {
     const target = event.target as Element;
     const fileButton = target.closest('button');
     if (fileButton) {
-      this.select(fileButton.closest('tr')!);
+      this.select(fileButton.closest('tr')!, event);
       return;
     }
 
@@ -173,13 +179,46 @@ export class DirectoryView {
     }
   }
 
-  private select(row: HTMLTableRowElement): void {
-    this.selectedRow?.classList.remove('selected');
-    row.classList.add('selected');
-    this.selectedRow = row;
+  private select(row: HTMLTableRowElement, event: MouseEvent): void {
+    if (event.shiftKey && this.anchorRow) {
+      this.selectRange(this.anchorRow, row);
+    } else if (event.ctrlKey || event.metaKey) {
+      row.classList.toggle('selected');
+      this.anchorRow = row;
+    } else {
+      this.clearSelection();
+      row.classList.add('selected');
+      this.anchorRow = row;
+    }
+    this.onSelect(this.selectedFiles());
+  }
 
-    const entity = this.model.entities[row.sectionRowIndex];
-    this.onSelect({path: `${this.model.path}/${entity.name}`, entity});
+  private selectRange(
+    from: HTMLTableRowElement,
+    to: HTMLTableRowElement,
+  ): void {
+    this.clearSelection();
+    const first = Math.min(from.sectionRowIndex, to.sectionRowIndex);
+    const last = Math.max(from.sectionRowIndex, to.sectionRowIndex);
+    for (let i = first; i <= last; i++) {
+      if (this.model.entities[i].type !== 'directory') {
+        this.rows.rows[i].classList.add('selected');
+      }
+    }
+  }
+
+  private clearSelection(): void {
+    for (const row of this.rows.querySelectorAll('tr.selected')) {
+      row.classList.remove('selected');
+    }
+  }
+
+  private selectedFiles(): SelectedFile[] {
+    const rows = this.rows.querySelectorAll<HTMLTableRowElement>('tr.selected');
+    return [...rows].map(row => {
+      const entity = this.model.entities[row.sectionRowIndex];
+      return {path: `${this.model.path}/${entity.name}`, entity};
+    });
   }
 
   private sortBy(key: SortKey): void {

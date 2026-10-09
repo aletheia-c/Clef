@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     tags.registry().catch(() => undefined),
   ]);
   const panel = new TagPanel(tags, new TagRegistry(aliases));
-  const view = new DirectoryView(listing, rootPath, file => panel.show(file));
+  const view = new DirectoryView(listing, rootPath, files => panel.show(files));
   view.start();
 }
 

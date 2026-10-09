@@ -1,12 +1,13 @@
 import {confirmAction} from './confirm_dialog';
 import type {SelectedFile} from './directory_view';
 import {byId} from './dom';
+import {mergeTags, type MergedTag} from './tag_merge';
 import type {TagRegistry} from './tag_registry';
 import {TAGGABLE_EXTENSIONS, type TagMap, type TagService} from './tags';
 
 interface LoadedTags {
-  path: string;
-  tags: TagMap;
+  paths: string[];
+  rows: MergedTag[];
 }
 
 export class TagPanel {
@@ -42,42 +43,49 @@ export class TagPanel {
     });
   }
 
-  show(file: SelectedFile | null): void {
+  show(files: SelectedFile[]): void {
     this.pending?.abort();
     this.pending = undefined;
     this.current = undefined;
     this.editor.hidden = true;
     this.addForm.reset();
 
-    if (!file) {
+    if (files.length === 0) {
       this.panel.hidden = true;
       return;
     }
     this.panel.hidden = false;
-    this.fileName.textContent = file.entity.name;
 
-    const {type, extension} = file.entity;
-    if (type !== 'music') {
-      this.setStatus('Not a music file.');
-    } else if (!TAGGABLE_EXTENSIONS.has(extension)) {
-      this.setStatus(`Tags of ${extension} files are not supported.`);
-    } else {
-      void this.load(file.path);
+    const taggable = files.filter(
+      ({entity}) =>
+        entity.type === 'music' && TAGGABLE_EXTENSIONS.has(entity.extension),
+    );
+    this.fileName.textContent = titleFor(files, taggable.length);
+    if (taggable.length === 0) {
+      this.setStatus(whyNotTaggable(files));
+      return;
     }
+    void this.load(taggable.map(file => file.path));
   }
 
-  private async load(path: string): Promise<void> {
+  private async load(paths: string[], notice = ''): Promise<void> {
     const controller = new AbortController();
     this.pending = controller;
-    this.setStatus('Loading…');
 
     try {
-      const tags = await this.service.tags(path, controller.signal);
+      const files: TagMap[] = [];
+      for (const path of paths) {
+        this.setStatus(progress('Loading', files.length, paths.length));
+        files.push(await this.service.tags(path, controller.signal));
+      }
       if (controller.signal.aborted) {
         return;
       }
-      this.current = {path, tags};
+      this.current = {paths, rows: mergeTags(files, this.registry)};
       this.render();
+      if (notice) {
+        this.setStatus(notice);
+      }
     } catch (error) {
       if (controller.signal.aborted) {
         return;
@@ -87,51 +95,74 @@ export class TagPanel {
   }
 
   private render(): void {
-    const tags = this.current!.tags;
-    const keys = Object.keys(tags)
-      .map(key => ({key, name: this.registry.nameOf(key)}))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const rows = this.current!.rows;
 
     this.list.replaceChildren();
-    for (const {key, name} of keys) {
+    rows.forEach((row, index) => {
       const term = document.createElement('dt');
-      term.textContent = name;
-      term.title = key;
+      term.textContent = row.name;
+      term.title = rawKeysOf(row).join(' / ');
       this.list.append(term);
-      for (const value of tags[key]) {
-        this.list.append(renderValue(key, name, value));
+      if (row.common) {
+        for (const value of row.common) {
+          this.list.append(renderValue(index, row.name, value));
+        }
+      } else {
+        this.list.append(renderVaried(index, row.name));
       }
-    }
+    });
 
     this.editor.hidden = false;
     this.editor.disabled = false;
-    this.setStatus(keys.length === 0 ? 'No tags.' : '');
+    this.setStatus(rows.length === 0 ? 'No tags.' : '');
   }
 
   private async handleValueChange(input: HTMLInputElement): Promise<void> {
-    const tag = input.closest('dd')!.dataset.tag!;
+    const row = this.rowOf(input);
     const oldValue = input.defaultValue;
     const newValue = input.value;
 
+    if (!row.common) {
+      if (newValue.trim() === '') {
+        input.value = '';
+      } else {
+        await this.save((path, index) =>
+          this.setValue(row, path, index, newValue),
+        );
+      }
+      return;
+    }
     if (newValue.trim() === '') {
-      if (await confirmRemove(this.registry.nameOf(tag), oldValue)) {
-        await this.save(path => this.service.removeValue(path, tag, oldValue));
+      if (await confirmRemove(row.name, oldValue)) {
+        await this.save((path, index) =>
+          this.service.removeValue(path, row.perFile[index]!.key, oldValue),
+        );
       } else {
         input.value = oldValue;
       }
       return;
     }
-    await this.save(path =>
-      this.service.editValue(path, tag, oldValue, newValue),
+    await this.save((path, index) =>
+      this.service.editValue(path, row.perFile[index]!.key, oldValue, newValue),
     );
   }
 
   private async handleRemoveClick(button: HTMLButtonElement): Promise<void> {
-    const value = button.closest('dd')!;
-    const tag = value.dataset.tag!;
-    const text = value.querySelector('input')!.defaultValue;
-    if (await confirmRemove(this.registry.nameOf(tag), text)) {
-      await this.save(path => this.service.removeValue(path, tag, text));
+    const row = this.rowOf(button);
+    if (!row.common) {
+      const files = this.current!.paths.length;
+      if (
+        await confirmAction(`Remove ${row.name} from ${files} files?`, 'Remove')
+      ) {
+        await this.save((path, index) => this.removeAll(row, path, index));
+      }
+      return;
+    }
+    const value = button.closest('dd')!.querySelector('input')!.defaultValue;
+    if (await confirmRemove(row.name, value)) {
+      await this.save((path, index) =>
+        this.service.removeValue(path, row.perFile[index]!.key, value),
+      );
     }
   }
 
@@ -150,30 +181,78 @@ export class TagPanel {
     );
   }
 
+  private async setValue(
+    row: MergedTag,
+    path: string,
+    index: number,
+    value: string,
+  ): Promise<void> {
+    const tag = row.perFile[index];
+    if (!tag) {
+      await this.service.addValue(path, row.name, value);
+      return;
+    }
+    for (const old of tag.values) {
+      if (old !== value) {
+        await this.service.removeValue(path, tag.key, old);
+      }
+    }
+    if (!tag.values.includes(value)) {
+      await this.service.addValue(path, tag.key, value);
+    }
+  }
+
+  private async removeAll(
+    row: MergedTag,
+    path: string,
+    index: number,
+  ): Promise<void> {
+    const tag = row.perFile[index];
+    for (const value of tag?.values ?? []) {
+      await this.service.removeValue(path, tag!.key, value);
+    }
+  }
+
   private async save(
-    change: (path: string) => Promise<void>,
+    change: (path: string, index: number) => Promise<void>,
   ): Promise<boolean> {
     const current = this.current;
     if (!current) {
       return false;
     }
     this.editor.disabled = true;
-    this.setStatus('Saving…');
 
-    try {
-      await change(current.path);
-    } catch (error) {
-      if (this.current === current) {
-        this.render();
-        this.setStatus(`Cannot save: ${messageOf(error)}`);
+    const total = current.paths.length;
+    let failed = 0;
+    let firstError = '';
+    for (const [index, path] of current.paths.entries()) {
+      if (this.current !== current) {
+        return false;
       }
-      return false;
+      this.setStatus(progress('Saving', index, total));
+      try {
+        await change(path, index);
+      } catch (error) {
+        failed++;
+        firstError ||= messageOf(error);
+      }
     }
 
     if (this.current === current) {
-      void this.load(current.path);
+      const notice =
+        failed === 0
+          ? ''
+          : total === 1
+            ? `Cannot save: ${firstError}`
+            : `Saved ${total - failed}/${total} files. ${firstError}`;
+      void this.load(current.paths, notice);
     }
-    return true;
+    return failed === 0;
+  }
+
+  private rowOf(element: Element): MergedTag {
+    const index = Number(element.closest('dd')!.dataset.row);
+    return this.current!.rows[index];
   }
 
   private setStatus(text: string): void {
@@ -182,23 +261,70 @@ export class TagPanel {
   }
 }
 
-function renderValue(tag: string, name: string, value: string): HTMLElement {
+function renderValue(row: number, name: string, value: string): HTMLElement {
   const description = document.createElement('dd');
-  description.dataset.tag = tag;
+  description.dataset.row = String(row);
 
   const input = document.createElement('input');
   input.type = 'text';
   input.defaultValue = value;
   input.setAttribute('aria-label', name);
 
-  const remove = document.createElement('button');
-  remove.type = 'button';
-  remove.textContent = '×';
-  remove.title = 'Remove';
-  remove.setAttribute('aria-label', `Remove ${value} from ${name}`);
-
-  description.append(input, remove);
+  description.append(input, removeButton(`Remove ${value} from ${name}`));
   return description;
+}
+
+function renderVaried(row: number, name: string): HTMLElement {
+  const description = document.createElement('dd');
+  description.dataset.row = String(row);
+  description.className = 'varied';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Different values';
+  input.setAttribute('aria-label', name);
+
+  description.append(input, removeButton(`Remove ${name} from all files`));
+  return description;
+}
+
+function removeButton(label: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '×';
+  button.title = 'Remove';
+  button.setAttribute('aria-label', label);
+  return button;
+}
+
+function rawKeysOf(row: MergedTag): string[] {
+  const keys = row.perFile.flatMap(tag => (tag ? [tag.key] : []));
+  return [...new Set(keys)];
+}
+
+function titleFor(files: SelectedFile[], taggable: number): string {
+  if (files.length === 1) {
+    return files[0].entity.name;
+  }
+  if (taggable === files.length || taggable === 0) {
+    return `${files.length} files`;
+  }
+  return `${taggable} of ${files.length} files`;
+}
+
+function whyNotTaggable(files: SelectedFile[]): string {
+  if (files.length > 1) {
+    return 'None of these files has tags that can be edited.';
+  }
+  const {type, extension} = files[0].entity;
+  if (type !== 'music') {
+    return 'Not a music file.';
+  }
+  return `Tags of ${extension} files are not supported.`;
+}
+
+function progress(action: string, done: number, total: number): string {
+  return total === 1 ? `${action}…` : `${action} ${done + 1}/${total}…`;
 }
 
 function confirmRemove(name: string, value: string): Promise<boolean> {
