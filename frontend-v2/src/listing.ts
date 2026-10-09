@@ -27,4 +27,7 @@ export interface ListPage {
 export interface ListingService {
   mountPoint(): Promise<string>;
   list(request: ListRequest, signal: AbortSignal): Promise<ListPage>;
+  createFolder(directory: string, name: string): Promise<void>;
+  rename(path: string, newName: string): Promise<void>;
+  upload(directory: string, file: File): Promise<void>;
 }

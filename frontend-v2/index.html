@@ -14,6 +14,15 @@
       <symbol id="icon-refresh" viewBox="0 0 16 16">
         <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5v3h-3"/>
       </symbol>
+      <symbol id="icon-new-folder" viewBox="0 0 16 16">
+        <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13zM8 7.5v4M6 9.5h4"/>
+      </symbol>
+      <symbol id="icon-upload" viewBox="0 0 16 16">
+        <path d="M8 10.5v-8M4.5 6 8 2.5 11.5 6M2.5 10.5v3h11v-3"/>
+      </symbol>
+      <symbol id="icon-rename" viewBox="0 0 16 16">
+        <path d="M10.5 2.5l3 3-8 8h-3v-3zM8.5 4.5l3 3"/>
+      </symbol>
       <symbol id="icon-folder" viewBox="0 0 16 16">
         <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z"/>
       </symbol>
@@ -30,6 +39,16 @@
       </button>
       <button id="refresh" type="button" title="Refresh" aria-label="Refresh">
         <svg aria-hidden="true"><use href="#icon-refresh"/></svg>
+      </button>
+      <button id="new-folder" type="button" title="New folder" aria-label="New folder">
+        <svg aria-hidden="true"><use href="#icon-new-folder"/></svg>
+      </button>
+      <button id="upload" type="button" title="Upload" aria-label="Upload">
+        <svg aria-hidden="true"><use href="#icon-upload"/></svg>
+      </button>
+      <input id="upload-input" type="file" multiple hidden>
+      <button id="rename" type="button" title="Rename" aria-label="Rename" disabled>
+        <svg aria-hidden="true"><use href="#icon-rename"/></svg>
       </button>
       <form id="path-form">
         <input id="path" type="text" aria-label="Path" spellcheck="false" autocomplete="off">
@@ -81,7 +100,19 @@
       </form>
     </dialog>
 
+    <dialog id="prompt">
+      <form method="dialog">
+        <label id="prompt-label" for="prompt-input"></label>
+        <input id="prompt-input" type="text" spellcheck="false" autocomplete="off" required pattern="(?!\.\.?$)[^\/\\]+" title="A name without / or \">
+        <div class="dialog-buttons">
+          <button value="cancel" formnovalidate>Cancel</button>
+          <button id="prompt-ok" value="ok"></button>
+        </div>
+      </form>
+    </dialog>
+
     <footer class="status">
+      <span id="activity" hidden></span>
       <span id="loading" hidden>Loading…</span>
       <span id="count"></span>
     </footer>

@@ -1,5 +1,6 @@
 import {DirectoryModel} from './directory_model';
 import {byId} from './dom';
+import {askName} from './prompt_dialog';
 import type {Entity, EntityType, ListingService, SortKey} from './listing';
 
 const APP_NAME = 'Clef';
@@ -37,6 +38,10 @@ export interface SelectedFile {
 export class DirectoryView {
   private readonly upButton = byId('up', HTMLButtonElement);
   private readonly refreshButton = byId('refresh', HTMLButtonElement);
+  private readonly newFolderButton = byId('new-folder', HTMLButtonElement);
+  private readonly uploadButton = byId('upload', HTMLButtonElement);
+  private readonly uploadInput = byId('upload-input', HTMLInputElement);
+  private readonly renameButton = byId('rename', HTMLButtonElement);
   private readonly pathForm = byId('path-form', HTMLFormElement);
   private readonly pathInput = byId('path', HTMLInputElement);
   private readonly errorBanner = byId('error', HTMLParagraphElement);
@@ -45,15 +50,17 @@ export class DirectoryView {
   private readonly sentinel = byId('sentinel', HTMLDivElement);
   private readonly loadingLabel = byId('loading', HTMLSpanElement);
   private readonly countLabel = byId('count', HTMLSpanElement);
+  private readonly activityLabel = byId('activity', HTMLSpanElement);
   private readonly sortHeaders =
     document.querySelectorAll<HTMLTableCellElement>('th[data-sort]');
 
   private readonly model: DirectoryModel;
   private replaceHistory = true;
   private anchorRow?: HTMLTableRowElement;
+  private errorAfterReset?: string;
 
   constructor(
-    service: ListingService,
+    private readonly service: ListingService,
     private readonly rootPath: string,
     private readonly onSelect: (files: SelectedFile[]) => void,
   ) {
@@ -68,6 +75,17 @@ export class DirectoryView {
       this.model.load(parentOf(this.model.path));
     });
     this.refreshButton.addEventListener('click', () => this.model.reload());
+    this.newFolderButton.addEventListener('click', () => {
+      void this.createFolder();
+    });
+    this.renameButton.addEventListener('click', () => {
+      void this.renameSelected();
+    });
+    this.uploadButton.addEventListener('click', () => this.uploadInput.click());
+    this.uploadInput.addEventListener('change', () => {
+      void this.upload([...(this.uploadInput.files ?? [])]);
+      this.uploadInput.value = '';
+    });
     this.pathForm.addEventListener('submit', event => {
       event.preventDefault();
       const path = this.pathInput.value.trim();
@@ -88,6 +106,20 @@ export class DirectoryView {
       if (event.shiftKey) {
         event.preventDefault();
       }
+    });
+    this.listing.addEventListener('dragover', event => {
+      if (event.dataTransfer?.types.includes('Files')) {
+        event.preventDefault();
+        this.listing.classList.add('dropping');
+      }
+    });
+    this.listing.addEventListener('dragleave', () => {
+      this.listing.classList.remove('dropping');
+    });
+    this.listing.addEventListener('drop', event => {
+      event.preventDefault();
+      this.listing.classList.remove('dropping');
+      void this.upload([...(event.dataTransfer?.files ?? [])]);
     });
     window.addEventListener('popstate', () => {
       this.replaceHistory = true;
@@ -121,6 +153,10 @@ export class DirectoryView {
     this.pathInput.value = path;
     this.upButton.disabled = path === this.rootPath;
     this.errorBanner.hidden = true;
+    if (this.errorAfterReset) {
+      this.showError(this.errorAfterReset);
+      this.errorAfterReset = undefined;
+    }
 
     const hadSelection = this.selectedFiles().length > 0;
     this.anchorRow = undefined;
@@ -131,7 +167,7 @@ export class DirectoryView {
     this.updateCount();
     this.fetchMoreIfNeeded();
     if (hadSelection) {
-      this.onSelect([]);
+      this.selectionChanged();
     }
   }
 
@@ -150,8 +186,7 @@ export class DirectoryView {
   private handleLoadFailed(path: string, error: Error): void {
     this.replaceHistory = false;
     this.pathInput.value = this.model.path;
-    this.errorBanner.textContent = `Cannot list ${path}: ${error.message}`;
-    this.errorBanner.hidden = false;
+    this.showError(`Cannot list ${path}: ${error.message}`);
   }
 
   private handleRowClick(event: MouseEvent): void {
@@ -190,7 +225,71 @@ export class DirectoryView {
       row.classList.add('selected');
       this.anchorRow = row;
     }
-    this.onSelect(this.selectedFiles());
+    this.selectionChanged();
+  }
+
+  private selectionChanged(): void {
+    const files = this.selectedFiles();
+    this.renameButton.disabled = files.length !== 1;
+    this.onSelect(files);
+  }
+
+  private async createFolder(): Promise<void> {
+    const name = await askName('New folder', 'Create');
+    if (name) {
+      await this.change(() => this.service.createFolder(this.model.path, name));
+    }
+  }
+
+  private async renameSelected(): Promise<void> {
+    const [file] = this.selectedFiles();
+    const name = await askName(
+      `Rename ${file.entity.name}`,
+      'Rename',
+      file.entity.name,
+    );
+    if (name && name !== file.entity.name) {
+      await this.change(() => this.service.rename(file.path, name));
+    }
+  }
+
+  private async change(action: () => Promise<void>): Promise<void> {
+    try {
+      await action();
+      this.model.reload();
+    } catch (error) {
+      this.showError(messageOf(error));
+    }
+  }
+
+  private async upload(files: File[]): Promise<void> {
+    if (files.length === 0) {
+      return;
+    }
+    const directory = this.model.path;
+    let failed = 0;
+    let firstError = '';
+    for (const [index, file] of files.entries()) {
+      this.activityLabel.textContent = `Uploading ${index + 1}/${files.length}…`;
+      this.activityLabel.hidden = false;
+      try {
+        await this.service.upload(directory, file);
+      } catch (error) {
+        failed++;
+        firstError ||= `${file.name}: ${messageOf(error)}`;
+      }
+    }
+    this.activityLabel.hidden = true;
+
+    if (failed > 0) {
+      this.errorAfterReset = `Cannot upload ${failed} of ${files.length} files. ${firstError}`;
+    }
+    this.model.reload();
+  }
+
+  private showError(message: string): void {
+    this.errorBanner.textContent = message;
+    this.errorBanner.hidden = false;
   }
 
   private selectRange(
@@ -300,6 +399,10 @@ function formatSize(bytes: number): string {
     unit++;
   }
   return SIZE_FORMATS[unit].format(value);
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function parentOf(path: string): string {

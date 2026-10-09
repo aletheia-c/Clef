@@ -16,6 +16,11 @@ export async function postJson(url: string, body: unknown): Promise<void> {
   await ensureOk(response);
 }
 
+export async function postForm(url: string, form: FormData): Promise<void> {
+  const response = await fetch(url, {method: 'POST', body: form});
+  await ensureOk(response);
+}
+
 async function ensureOk(response: Response): Promise<void> {
   if (!response.ok) {
     const message = (await response.text()).trim();

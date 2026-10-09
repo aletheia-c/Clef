@@ -65,6 +65,57 @@ export class MockListingService implements ListingService {
     });
   }
 
+  async createFolder(directory: string, name: string): Promise<void> {
+    await delay(LATENCY_MS);
+    if (this.entriesOf(directory).some(entity => entity.name === name)) {
+      throw new Error('Error: The specified directory already exist');
+    }
+    this.addDirectory(directory, name);
+  }
+
+  async rename(path: string, newName: string): Promise<void> {
+    await delay(LATENCY_MS);
+    const slash = path.lastIndexOf('/');
+    const parent = path.slice(0, slash);
+    const entries = this.entriesOf(parent);
+    const index = entries.findIndex(
+      entity => entity.name === path.slice(slash + 1),
+    );
+    if (index === -1) {
+      throw new Error('No such file or directory');
+    }
+
+    const entity = entries[index];
+    if (entity.type === 'directory') {
+      entries[index] = {...entity, name: newName};
+      const newPath = `${parent}/${newName}`;
+      for (const [key, children] of [...this.directories]) {
+        if (key === path || key.startsWith(`${path}/`)) {
+          this.directories.delete(key);
+          this.directories.set(newPath + key.slice(path.length), children);
+        }
+      }
+    } else {
+      const extension = extensionOf(newName);
+      entries[index] = {
+        ...entity,
+        name: newName,
+        extension,
+        type: typeForExtension(extension),
+      };
+    }
+  }
+
+  async upload(directory: string, file: File): Promise<void> {
+    await delay(LATENCY_MS);
+    const entries = this.entriesOf(directory);
+    const existing = entries.findIndex(entity => entity.name === file.name);
+    if (existing !== -1) {
+      entries.splice(existing, 1);
+    }
+    this.addFile(directory, file.name, file.size);
+  }
+
   private respond(request: ListRequest): ListPage {
     let path = normalizePath(request.path);
     if (path !== ROOT_PATH && !path.startsWith(`${ROOT_PATH}/`)) {
@@ -116,8 +167,7 @@ export class MockListingService implements ListingService {
   }
 
   private addFile(directory: string, name: string, size: number): void {
-    const dot = name.lastIndexOf('.');
-    const extension = dot > 0 ? name.slice(dot) : '';
+    const extension = extensionOf(name);
     this.entriesOf(directory).push({
       name,
       type: typeForExtension(extension),
@@ -134,6 +184,11 @@ export class MockListingService implements ListingService {
     }
     return entries;
   }
+}
+
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(dot) : '';
 }
 
 function typeForExtension(extension: string): EntityType {
@@ -157,6 +212,10 @@ function normalizePath(path: string): string {
     }
   }
   return `/${parts.join('/')}`;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function fakeSize(seed: number, min: number, max: number): number {

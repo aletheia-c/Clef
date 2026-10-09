@@ -97,6 +97,12 @@ h1 {
   overflow: auto;
 }
 
+#listing.dropping {
+  outline: 2px dashed Highlight;
+  outline-offset: -4px;
+  background: color-mix(in srgb, Highlight 8%, transparent);
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -311,6 +317,30 @@ dialog::backdrop {
 .dialog-buttons > button {
   padding: 4px 12px;
   font: inherit;
+}
+
+#prompt {
+  width: 320px;
+}
+
+#prompt label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+#prompt-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 3px 8px;
+  font: inherit;
+}
+
+#prompt-ok {
+  border: 1px solid Highlight;
+  border-radius: 3px;
+  background: Highlight;
+  color: HighlightText;
 }
 
 #confirm-ok {
