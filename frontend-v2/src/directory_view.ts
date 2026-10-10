@@ -57,6 +57,7 @@ export class DirectoryView {
   private readonly model: DirectoryModel;
   private replaceHistory = true;
   private anchorRow?: HTMLTableRowElement;
+  private focusRow?: HTMLTableRowElement;
   private errorAfterReset?: string;
 
   constructor(
@@ -121,6 +122,7 @@ export class DirectoryView {
       this.listing.classList.remove('dropping');
       void this.upload([...(event.dataTransfer?.files ?? [])]);
     });
+    window.addEventListener('keydown', event => this.handleKeyDown(event));
     window.addEventListener('popstate', () => {
       this.replaceHistory = true;
       this.model.load(pathFromUrl(location.href) ?? this.rootPath);
@@ -160,6 +162,7 @@ export class DirectoryView {
 
     const hadSelection = this.selectedFiles().length > 0;
     this.anchorRow = undefined;
+    this.focusRow = undefined;
     this.rows.replaceChildren(
       ...this.model.entities.map(e => this.renderRow(e)),
     );
@@ -214,7 +217,58 @@ export class DirectoryView {
     }
   }
 
-  private select(row: HTMLTableRowElement, event: MouseEvent): void {
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (
+      isTyping(event.target) ||
+      document.querySelector('dialog[open], :popover-open')
+    ) {
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key === 'a') {
+      event.preventDefault();
+      this.selectAllMusic();
+    } else if (event.key === 'Escape' && this.selectedFiles().length > 0) {
+      this.clearSelection();
+      this.anchorRow = undefined;
+      this.focusRow = undefined;
+      this.selectionChanged();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.moveSelection(event.key === 'ArrowDown' ? 1 : -1, event);
+    } else if (event.key === 'F2' && !this.renameButton.disabled) {
+      event.preventDefault();
+      void this.renameSelected();
+    }
+  }
+
+  private selectAllMusic(): void {
+    this.clearSelection();
+    this.model.entities.forEach((entity, index) => {
+      if (entity.type === 'music') {
+        this.rows.rows[index].classList.add('selected');
+      }
+    });
+    this.selectionChanged();
+  }
+
+  private moveSelection(step: number, event: KeyboardEvent): void {
+    const fileRows = [...this.rows.rows].filter(
+      (_, index) => this.model.entities[index].type !== 'directory',
+    );
+    const current = this.focusRow ? fileRows.indexOf(this.focusRow) : -1;
+    const next =
+      current === -1
+        ? fileRows[step > 0 ? 0 : fileRows.length - 1]
+        : fileRows[current + step];
+    if (next) {
+      this.select(next, event);
+    }
+  }
+
+  private select(
+    row: HTMLTableRowElement,
+    event: MouseEvent | KeyboardEvent,
+  ): void {
     if (event.shiftKey && this.anchorRow) {
       this.selectRange(this.anchorRow, row);
     } else if (event.ctrlKey || event.metaKey) {
@@ -225,6 +279,8 @@ export class DirectoryView {
       row.classList.add('selected');
       this.anchorRow = row;
     }
+    this.focusRow = row;
+    row.scrollIntoView({block: 'nearest'});
     this.selectionChanged();
   }
 
@@ -399,6 +455,15 @@ function formatSize(bytes: number): string {
     unit++;
   }
   return SIZE_FORMATS[unit].format(value);
+}
+
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function messageOf(error: unknown): string {
