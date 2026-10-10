@@ -84,6 +84,23 @@ h1 {
   font: inherit;
 }
 
+#server-status {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 4px 0 12px;
+  border-radius: 50%;
+  background: GrayText;
+}
+
+#server-status[data-status='connected'] {
+  background: #2ea043;
+}
+
+#server-status[data-status='disconnected'] {
+  background: #d13438;
+}
+
 #error {
   grid-row: 2;
   grid-column: 1 / -1;
