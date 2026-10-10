@@ -1,12 +1,43 @@
 :root {
-  color-scheme: light dark;
-  --separator: color-mix(in srgb, CanvasText 15%, transparent);
-  --hover: color-mix(in srgb, CanvasText 7%, transparent);
+  color-scheme: dark;
+  --bg: #0c0c0f;
+  --surface: #141419;
+  --field: #1c1c23;
+  --border: #26262f;
+  --text: #ece8f2;
+  --muted: #8a879a;
+  --hover: color-mix(in srgb, var(--text) 7%, transparent);
+  --accent: #7b91f8;
+  --accent-hover: #9daeff;
+  --accent-2: #8980d4;
+  --danger: #e5534b;
+  accent-color: var(--accent);
   font: 13px/1.4 system-ui, sans-serif;
 }
 
 [hidden] {
   display: none !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+input[type='text'] {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text);
+}
+
+input[type='text']:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+input[type='text']::placeholder {
+  color: var(--muted);
 }
 
 body {
@@ -15,8 +46,8 @@ body {
   grid-template-columns: 1fr auto;
   height: 100vh;
   margin: 0;
-  background: Canvas;
-  color: CanvasText;
+  background: var(--bg);
+  color: var(--text);
 }
 
 svg {
@@ -36,7 +67,8 @@ svg {
   align-items: center;
   gap: 2px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--separator);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .logo {
@@ -67,7 +99,7 @@ h1 {
 }
 
 .toolbar button:disabled {
-  color: GrayText;
+  color: color-mix(in srgb, var(--muted) 50%, transparent);
 }
 
 #path-form {
@@ -90,7 +122,7 @@ h1 {
   height: 8px;
   margin: 0 4px 0 12px;
   border-radius: 50%;
-  background: GrayText;
+  background: var(--muted);
 }
 
 #server-status[data-status='connected'] {
@@ -98,7 +130,7 @@ h1 {
 }
 
 #server-status[data-status='disconnected'] {
-  background: #d13438;
+  background: var(--danger);
 }
 
 #settings-menu {
@@ -107,10 +139,10 @@ h1 {
   min-width: 200px;
   margin: 0;
   padding: 8px 0;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: Canvas;
-  color: CanvasText;
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
 }
 
@@ -120,13 +152,13 @@ h1 {
 }
 
 #settings-server {
-  color: GrayText;
+  color: var(--muted);
 }
 
 #settings-menu hr {
   margin: 8px 0;
   border: 0;
-  border-top: 1px solid var(--separator);
+  border-top: 1px solid var(--border);
 }
 
 #settings-menu label {
@@ -145,7 +177,7 @@ h1 {
   grid-column: 1 / -1;
   margin: 0;
   padding: 6px 8px;
-  background: color-mix(in srgb, #d13438 18%, Canvas);
+  background: color-mix(in srgb, var(--danger) 18%, var(--bg));
 }
 
 #listing {
@@ -154,9 +186,9 @@ h1 {
 }
 
 #listing.dropping {
-  outline: 2px dashed Highlight;
+  outline: 2px dashed var(--accent-2);
   outline-offset: -4px;
-  background: color-mix(in srgb, Highlight 8%, transparent);
+  background: color-mix(in srgb, var(--accent-2) 8%, transparent);
 }
 
 table {
@@ -168,8 +200,8 @@ th {
   position: sticky;
   top: 0;
   padding: 0;
-  border-bottom: 1px solid var(--separator);
-  background: Canvas;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
   font-weight: normal;
   text-align: left;
   white-space: nowrap;
@@ -199,6 +231,10 @@ th[aria-sort='descending'] > button::after {
   content: ' \25BE';
 }
 
+th[aria-sort] > button::after {
+  color: var(--accent-hover);
+}
+
 th.name {
   width: 100%;
 }
@@ -223,7 +259,7 @@ tbody tr:hover {
 }
 
 tbody tr.selected {
-  background: color-mix(in srgb, Highlight 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 a,
@@ -238,6 +274,7 @@ td > button {
 
 a:hover,
 td > button:hover {
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -251,7 +288,8 @@ td > button:hover {
   width: 320px;
   overflow: auto;
   padding: 8px 12px;
-  border-left: 1px solid var(--separator);
+  border-left: 1px solid var(--border);
+  background: var(--surface);
 }
 
 #tag-file {
@@ -265,9 +303,9 @@ td > button:hover {
   display: inline-block;
   margin: -4px 0 10px;
   padding: 1px 6px;
-  border: 1px solid var(--separator);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 50%, transparent);
   border-radius: 4px;
-  color: GrayText;
+  color: var(--accent-2);
   font: 11px ui-monospace, monospace;
 }
 
@@ -276,7 +314,7 @@ td > button:hover {
   aspect-ratio: 1;
   margin: 0 auto 12px;
   overflow: hidden;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--hover);
 }
@@ -292,12 +330,12 @@ td > button:hover {
   display: grid;
   place-items: center;
   height: 100%;
-  color: GrayText;
+  color: var(--muted);
 }
 
 #tag-status {
   margin: 0;
-  color: GrayText;
+  color: var(--muted);
 }
 
 #tag-editor {
@@ -313,7 +351,7 @@ td > button:hover {
 
 dt {
   margin-top: 10px;
-  color: GrayText;
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -324,7 +362,7 @@ dd {
 }
 
 dd.varied > input::placeholder {
-  color: GrayText;
+  color: var(--muted);
   font-style: italic;
 }
 
@@ -334,13 +372,13 @@ dd > button {
   border: 0;
   border-radius: 4px;
   background: none;
-  color: GrayText;
+  color: var(--muted);
   font: inherit;
 }
 
 dd > button:hover:enabled {
   background: var(--hover);
-  color: #d13438;
+  color: var(--danger);
 }
 
 #tag-add {
@@ -348,13 +386,13 @@ dd > button:hover:enabled {
   gap: 4px;
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--separator);
+  border-top: 1px solid var(--border);
 }
 
 #tag-history {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--separator);
+  border-top: 1px solid var(--border);
 }
 
 #tag-history summary {
@@ -364,7 +402,7 @@ dd > button:hover:enabled {
 
 #history-status {
   margin: 8px 0 0;
-  color: GrayText;
+  color: var(--muted);
 }
 
 #history-list {
@@ -375,7 +413,7 @@ dd > button:hover:enabled {
 
 #history-list li {
   padding: 6px 0;
-  border-bottom: 1px solid var(--separator);
+  border-bottom: 1px solid var(--border);
 }
 
 .history-head {
@@ -390,13 +428,13 @@ dd > button:hover:enabled {
 
 .history-head time {
   flex: 1;
-  color: GrayText;
+  color: var(--muted);
   font-size: 11px;
 }
 
 .history-head button {
   padding: 1px 8px;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--border);
   border-radius: 3px;
   background: none;
   color: inherit;
@@ -409,22 +447,35 @@ dd > button:hover:enabled {
 
 .history-values {
   margin-top: 2px;
-  color: GrayText;
+  color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+#tag-add > button,
+.dialog-buttons > button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+}
+
+#tag-add > button:hover,
+.dialog-buttons > button:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--field));
 }
 
 #tag-add > button {
   padding: 3px 10px;
-  font: inherit;
 }
 
 dialog {
   max-width: 360px;
   padding: 16px;
-  border: 1px solid var(--separator);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: Canvas;
-  color: CanvasText;
+  background: var(--surface);
+  color: var(--text);
 }
 
 dialog::backdrop {
@@ -444,7 +495,6 @@ dialog::backdrop {
 
 .dialog-buttons > button {
   padding: 4px 12px;
-  font: inherit;
 }
 
 #prompt {
@@ -465,17 +515,24 @@ dialog::backdrop {
 }
 
 #prompt-ok {
-  border: 1px solid Highlight;
-  border-radius: 3px;
-  background: Highlight;
-  color: HighlightText;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+#prompt-ok:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 
 #confirm-ok {
-  border: 1px solid #d13438;
-  border-radius: 3px;
-  background: #d13438;
+  border-color: var(--danger);
+  background: var(--danger);
   color: white;
+}
+
+#confirm-ok:hover {
+  background: color-mix(in srgb, white 12%, var(--danger));
 }
 
 .status {
@@ -485,5 +542,7 @@ dialog::backdrop {
   justify-content: flex-end;
   gap: 16px;
   padding: 4px 8px;
-  border-top: 1px solid var(--separator);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
 }
