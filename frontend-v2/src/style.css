@@ -101,6 +101,45 @@ h1 {
   background: #d13438;
 }
 
+#settings-menu {
+  position: fixed;
+  inset: auto;
+  min-width: 200px;
+  margin: 0;
+  padding: 8px 0;
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  background: Canvas;
+  color: CanvasText;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+}
+
+#settings-menu p {
+  margin: 0;
+  padding: 2px 12px;
+}
+
+#settings-server {
+  color: GrayText;
+}
+
+#settings-menu hr {
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--separator);
+}
+
+#settings-menu label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+}
+
+#settings-menu label:hover {
+  background: var(--hover);
+}
+
 #error {
   grid-row: 2;
   grid-column: 1 / -1;

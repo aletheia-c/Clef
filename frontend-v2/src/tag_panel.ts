@@ -29,6 +29,7 @@ export class TagPanel {
   constructor(
     private readonly service: TagService,
     private readonly registry: TagRegistry,
+    private showRawNames: boolean,
   ) {
     this.tagNames.append(...registry.names.map(name => new Option(name)));
     this.coverImage.addEventListener('error', () => {
@@ -48,6 +49,13 @@ export class TagPanel {
       event.preventDefault();
       this.handleAdd();
     });
+  }
+
+  setShowRawNames(show: boolean): void {
+    this.showRawNames = show;
+    if (this.current) {
+      this.render();
+    }
   }
 
   show(files: SelectedFile[]): void {
@@ -119,8 +127,9 @@ export class TagPanel {
     this.list.replaceChildren();
     rows.forEach((row, index) => {
       const term = document.createElement('dt');
-      term.textContent = row.name;
-      term.title = rawKeysOf(row).join(' / ');
+      const rawNames = rawKeysOf(row).join(' / ');
+      term.textContent = this.showRawNames ? rawNames : row.name;
+      term.title = this.showRawNames ? row.name : rawNames;
       this.list.append(term);
       if (row.common) {
         for (const value of row.common) {

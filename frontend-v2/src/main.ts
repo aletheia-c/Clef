@@ -4,7 +4,9 @@ import {HttpListingService} from './http_listing_service';
 import {HttpServerService} from './http_server_service';
 import {HttpTagService} from './http_tag_service';
 import type {ListingService} from './listing';
+import {loadShowRawNames} from './prefs';
 import type {ServerService} from './server';
+import {SettingsMenu} from './settings_menu';
 import {StatusIndicator} from './status_indicator';
 import {TagPanel} from './tag_panel';
 import {TagRegistry} from './tag_registry';
@@ -45,7 +47,12 @@ async function main(): Promise<void> {
     listing.mountPoint(),
     tags.registry().catch(() => undefined),
   ]);
-  const panel = new TagPanel(tags, new TagRegistry(aliases));
+  const panel = new TagPanel(
+    tags,
+    new TagRegistry(aliases),
+    loadShowRawNames(),
+  );
+  new SettingsMenu(server, show => panel.setShowRawNames(show));
   const view = new DirectoryView(listing, rootPath, files => panel.show(files));
   view.start();
 }
