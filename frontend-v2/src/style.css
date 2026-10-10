@@ -351,6 +351,68 @@ dd > button:hover:enabled {
   border-top: 1px solid var(--separator);
 }
 
+#tag-history {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+
+#tag-history summary {
+  cursor: default;
+  font-weight: 600;
+}
+
+#history-status {
+  margin: 8px 0 0;
+  color: GrayText;
+}
+
+#history-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#history-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.history-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.history-head strong {
+  font-weight: 600;
+}
+
+.history-head time {
+  flex: 1;
+  color: GrayText;
+  font-size: 11px;
+}
+
+.history-head button {
+  padding: 1px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.history-head button:hover {
+  background: var(--hover);
+}
+
+.history-values {
+  margin-top: 2px;
+  color: GrayText;
+  overflow-wrap: anywhere;
+}
+
 #tag-add > button {
   padding: 3px 10px;
   font: inherit;

@@ -1,6 +1,6 @@
 import {getJson, postJson} from './http';
 import type {TagAliases} from './tag_registry';
-import type {TagMap, TagService} from './tags';
+import type {HistoryEntry, TagMap, TagService} from './tags';
 
 type TagValue = string[] | string | number | boolean;
 
@@ -47,5 +47,14 @@ export class HttpTagService implements TagService {
 
   removeValue(path: string, tag: string, value: string): Promise<void> {
     return postJson('/api/removefieldtag', {path, fieldType: tag, value});
+  }
+
+  history(identifier: string, signal: AbortSignal): Promise<HistoryEntry[]> {
+    const params = new URLSearchParams({identifier});
+    return getJson<HistoryEntry[]>(`/api/gethistory?${params}`, signal);
+  }
+
+  undo(entry: HistoryEntry): Promise<void> {
+    return postJson('/api/undo', entry);
   }
 }

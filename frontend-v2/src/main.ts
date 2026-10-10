@@ -43,14 +43,16 @@ async function main(): Promise<void> {
   const {listing, tags, server} = await createServices();
   new StatusIndicator(server).start();
 
-  const [rootPath, aliases] = await Promise.all([
+  const [rootPath, aliases, settings] = await Promise.all([
     listing.mountPoint(),
     tags.registry().catch(() => undefined),
+    server.settings().catch(() => undefined),
   ]);
   const panel = new TagPanel(
     tags,
     new TagRegistry(aliases),
     loadShowRawNames(),
+    settings?.clef_id ?? false,
   );
   new SettingsMenu(server, show => panel.setShowRawNames(show));
   const view = new DirectoryView(listing, rootPath, files => panel.show(files));

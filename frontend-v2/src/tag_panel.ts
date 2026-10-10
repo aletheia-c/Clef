@@ -1,6 +1,7 @@
 import {confirmAction} from './confirm_dialog';
 import type {SelectedFile} from './directory_view';
 import {byId} from './dom';
+import {HistoryView} from './history_view';
 import {mergeTags, type MergedTag} from './tag_merge';
 import type {TagRegistry} from './tag_registry';
 import {
@@ -31,12 +32,19 @@ export class TagPanel {
   private readonly tagNames = byId('tag-names', HTMLDataListElement);
   private pending?: AbortController;
   private current?: LoadedTags;
+  private readonly history: HistoryView;
 
   constructor(
     private readonly service: TagService,
     private readonly registry: TagRegistry,
     private showRawNames: boolean,
+    private readonly useClefId: boolean,
   ) {
+    this.history = new HistoryView(service, registry, () => {
+      if (this.current) {
+        void this.load(this.current.paths);
+      }
+    });
     this.tagNames.append(...registry.names.map(name => new Option(name)));
     this.coverImage.addEventListener('error', () => {
       this.coverImage.hidden = true;
@@ -72,6 +80,7 @@ export class TagPanel {
     this.addForm.reset();
     this.cover.hidden = true;
     this.clefIdBadge.hidden = true;
+    this.history.show(null);
     this.coverImage.removeAttribute('src');
 
     if (files.length === 0) {
@@ -121,7 +130,8 @@ export class TagPanel {
       };
       this.render();
       if (files.length === 1) {
-        this.showClefId(files[0]);
+        const clefId = this.showClefId(files[0]);
+        this.history.show(this.useClefId && clefId ? clefId : paths[0]);
       }
       if (notice) {
         this.setStatus(notice);
@@ -134,10 +144,12 @@ export class TagPanel {
     }
   }
 
-  private showClefId(tags: TagMap): void {
+  private showClefId(tags: TagMap): string | undefined {
     const key = Object.keys(tags).find(isClefId);
-    this.clefIdBadge.textContent = key ? tags[key][0] : '';
-    this.clefIdBadge.hidden = !key;
+    const clefId = key ? tags[key][0] : undefined;
+    this.clefIdBadge.textContent = clefId ?? '';
+    this.clefIdBadge.hidden = !clefId;
+    return clefId;
   }
 
   private render(): void {
