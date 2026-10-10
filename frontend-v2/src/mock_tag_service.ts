@@ -112,6 +112,9 @@ function fakeTags(path: string): TagMap {
   if (Number(track) % 3 === 0) {
     tags.ARTISTS = [artist, 'Guest Singer'];
   }
+  if (Number(track) % 5 === 0) {
+    tags.CLEF_ID = [`jPnT${artist.at(-1)}${album.at(-1)}${track}uy7g8Lk`];
+  }
   return tags;
 }
 

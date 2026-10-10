@@ -10,6 +10,14 @@ export const TAGGABLE_EXTENSIONS = new Set([
   '.opus',
 ]);
 
+const ID_PREFIXES = ['TXXX:', '----:com.apple.iTunes:'];
+const ID_NAMES = new Set(['CLEF_ID', 'RTEID']);
+
+export function isClefId(key: string): boolean {
+  const prefix = ID_PREFIXES.find(prefix => key.startsWith(prefix)) ?? '';
+  return ID_NAMES.has(key.slice(prefix.length).toUpperCase());
+}
+
 export interface TagService {
   registry(): Promise<TagAliases>;
   tags(path: string, signal: AbortSignal): Promise<TagMap>;

@@ -3,7 +3,12 @@ import type {SelectedFile} from './directory_view';
 import {byId} from './dom';
 import {mergeTags, type MergedTag} from './tag_merge';
 import type {TagRegistry} from './tag_registry';
-import {TAGGABLE_EXTENSIONS, type TagMap, type TagService} from './tags';
+import {
+  isClefId,
+  TAGGABLE_EXTENSIONS,
+  type TagMap,
+  type TagService,
+} from './tags';
 
 interface LoadedTags {
   paths: string[];
@@ -13,6 +18,7 @@ interface LoadedTags {
 export class TagPanel {
   private readonly panel = byId('tag-panel', HTMLElement);
   private readonly fileName = byId('tag-file', HTMLHeadingElement);
+  private readonly clefIdBadge = byId('tag-clef-id', HTMLElement);
   private readonly cover = byId('tag-cover', HTMLElement);
   private readonly coverImage = byId('tag-cover-image', HTMLImageElement);
   private readonly coverMissing = byId('tag-cover-missing', HTMLElement);
@@ -65,6 +71,7 @@ export class TagPanel {
     this.editor.hidden = true;
     this.addForm.reset();
     this.cover.hidden = true;
+    this.clefIdBadge.hidden = true;
     this.coverImage.removeAttribute('src');
 
     if (files.length === 0) {
@@ -108,8 +115,14 @@ export class TagPanel {
       if (controller.signal.aborted) {
         return;
       }
-      this.current = {paths, rows: mergeTags(files, this.registry)};
+      this.current = {
+        paths,
+        rows: mergeTags(files.map(withoutClefId), this.registry),
+      };
       this.render();
+      if (files.length === 1) {
+        this.showClefId(files[0]);
+      }
       if (notice) {
         this.setStatus(notice);
       }
@@ -119,6 +132,12 @@ export class TagPanel {
       }
       this.setStatus(`Cannot read tags: ${messageOf(error)}`);
     }
+  }
+
+  private showClefId(tags: TagMap): void {
+    const key = Object.keys(tags).find(isClefId);
+    this.clefIdBadge.textContent = key ? tags[key][0] : '';
+    this.clefIdBadge.hidden = !key;
   }
 
   private render(): void {
@@ -323,6 +342,12 @@ function removeButton(label: string): HTMLButtonElement {
   button.title = 'Remove';
   button.setAttribute('aria-label', label);
   return button;
+}
+
+function withoutClefId(tags: TagMap): TagMap {
+  return Object.fromEntries(
+    Object.entries(tags).filter(([key]) => !isClefId(key)),
+  );
 }
 
 function rawKeysOf(row: MergedTag): string[] {
