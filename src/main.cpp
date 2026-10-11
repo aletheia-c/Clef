@@ -22,14 +22,14 @@
 #include <nlohmann/json.hpp>
 #include <SQLiteCpp/SQLiteCpp.h>
 
-#include "../include/authentication/authMiddleware.h"
+//#include "../include/authentication/authMiddleware.h"
 #include "../include/directoryListing.h"
 #include "../include/clef.h"
 #include "../include/clefConstants.h"
 #include "../include/tagChangeRequest.h"
 #include "../include/tagConstants.h"
 #include "../include/database/tagHistory.h"
-#include "../include/database/users.h"
+//#include "../include/database/users.h"
 #include "../include/tagMapping.h"
 #include "../include/utils.h"
 #include "format_handlers/factory.h"
@@ -189,31 +189,32 @@ int main (int argc, char **argv) {
         default: logLevel = crow::LogLevel::INFO; break;
     }
 
-    crow::App<crow::CORSHandler, crow::CookieParser, clef::AuthMiddleware> app;
-    app.get_middleware<clef::AuthMiddleware>().setSessionStore(application->getSessionStore());
+    //crow::App<crow::CORSHandler, crow::CookieParser, clef::AuthMiddleware> app;
+    //app.get_middleware<clef::AuthMiddleware>().setSessionStore(application->getSessionStore());
+    crow::App<crow::CORSHandler> app;
     CROW_LOG_INFO << clef::name << " v" << clef::version << " is running now";
     CROW_LOG_INFO << "Mountpoint: " << application->getMountPoint();
     CROW_LOG_INFO << "Listenting port: " << application->getPort();
 
-    CROW_ROUTE(app, "/api/auth/login").methods("POST"_method)
-    ([&](const crow::request &req) {
-        constexpr std::string_view logPrefix { "(api/auth/login): " };
-        crow::response res;
-        const json reqbody = json::parse(req.body);
-        std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
-        std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
-
-        auto sessionToken = application->userLogin(username, password);
-        CROW_LOG_WARNING << logPrefix << "sessionToken: " << sessionToken;
-        res.set_header(
-          "Set-Cookie",
-          "clef_session="+ sessionToken +
-          "; HttpOnly; SameSite=Lax; Path=/"
-        );
-        res.set_header("Cache-Control", "no-cache");
-
-        return res;
-    });
+    // CROW_ROUTE(app, "/api/auth/login").methods("POST"_method)
+    // ([&](const crow::request &req) {
+    //     constexpr std::string_view logPrefix { "(api/auth/login): " };
+    //     crow::response res;
+    //     const json reqbody = json::parse(req.body);
+    //     std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
+    //     std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
+    //
+    //     auto sessionToken = application->userLogin(username, password);
+    //     CROW_LOG_WARNING << logPrefix << "sessionToken: " << sessionToken;
+    //     res.set_header(
+    //       "Set-Cookie",
+    //       "clef_session="+ sessionToken +
+    //       "; HttpOnly; SameSite=Lax; Path=/"
+    //     );
+    //     res.set_header("Cache-Control", "no-cache");
+    //
+    //     return res;
+    // });
 
     // CROW_ROUTE(app, "/api/auth/signup").methods("POST"_method)
     // ([&](const crow::request &req) {
