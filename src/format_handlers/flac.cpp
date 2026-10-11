@@ -1,9 +1,15 @@
 #include "flac.h"
-#include "../../include/music.h"
 
+#include <cstddef>
+#include <utility>
+
+#include <crow/logging.h>
 #include <flacfile.h>
 #include <flacpicture.h>
 #include <xiphcomment.h>
+
+#include "../../include/tagConstants.h"
+#include "../../include/tagMapping.h"
 
 using namespace clef::music::handler;
 using namespace clef::music::tag;
@@ -39,7 +45,7 @@ std::expected<json, std::string> Flac::listMusicTags(const std::string &filePath
 
     json j;
     const auto tag = file.xiphComment();
-    for (const auto & [key, values] : tag->fieldListMap()) {
+    for (const auto &[key, values] : tag->fieldListMap()) {
         if (values.size() > 1) {
             const std::size_t temp { values.size() };
             for (std::size_t i { 0 }; i < temp; ++i) {
@@ -55,7 +61,7 @@ std::expected<json, std::string> Flac::listMusicTags(const std::string &filePath
     return j;
 }
 
-crow::response Flac::removeMusicTag(const TagModification &tagStruct, std::string *clefId) {
+crow::response Flac::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
     using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
 
@@ -103,7 +109,7 @@ crow::response Flac::removeMusicTag(const TagModification &tagStruct, std::strin
     return {200, "OK"};
 }
 
-crow::response Flac::addMusicTag(const TagModification &tagStruct, std::string *clefId) {
+crow::response Flac::addMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
     using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
     if (!file.isValid()) {
@@ -129,7 +135,7 @@ crow::response Flac::addMusicTag(const TagModification &tagStruct, std::string *
     return {200, "File/s saved!"};
 }
 
-crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string *clefId) {
+crow::response Flac::editMusicTags(const TagChangeRequest &tagStruct, std::string *clefId) {
     using namespace clef::music;
     TagLib::FLAC::File file { tagStruct.filePath.c_str() };
 
@@ -178,7 +184,7 @@ crow::response Flac::editMusicTags(const TagModification &tagStruct, std::string
     return { 200, "OK" };
 }
 
-Picture Flac::getAlbumCover(const std::string& filePath) {
+Picture Flac::getAlbumCover(const std::string &filePath) {
     using namespace clef::music;
 
     TagLib::FLAC::File file { filePath.c_str() };

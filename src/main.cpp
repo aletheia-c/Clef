@@ -1,24 +1,38 @@
-#include <iostream>
-#include <string>
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <unordered_map>
-#include <ctime>
-#include <unordered_set>
-#include <cctype>
-#include <algorithm>
+#include <utility>
+#include <vector>
 
-#include <nlohmann/json.hpp>
 #include <crow.h>
+#include <CLI/CLI.hpp>
 #include <crow/compression.h>
 #include <crow/middlewares/cors.h>
-#include <CLI/CLI.hpp>
+#include <crow/middlewares/cookie_parser.h>
+#include <nlohmann/json.hpp>
+#include <SQLiteCpp/SQLiteCpp.h>
 
-#include "../include/storage.h"
+#include "../include/authentication/authMiddleware.h"
+#include "../include/directoryListing.h"
 #include "../include/clef.h"
+#include "../include/clefConstants.h"
+#include "../include/tagChangeRequest.h"
+#include "../include/tagConstants.h"
+#include "../include/database/tagHistory.h"
+#include "../include/database/users.h"
+#include "../include/tagMapping.h"
 #include "../include/utils.h"
 #include "format_handlers/factory.h"
-#include "SQLiteCpp/SQLiteCpp.h"
 
 using json = nlohmann::json;
 using ordered_json = nlohmann::ordered_json;
@@ -53,7 +67,7 @@ static clef::EntityType fileExtensionToEntityType(const std::string_view ext) {
     return EntityType::file;
 }
 
-static ordered_json buildDirectoryTree(const std::string &basePath, const clef::QueryList &query) {
+static ordered_json buildDirectoryTree(const std::string &basePath, const clef::DirectoryListOptions &query) {
     using namespace clef;
 
     std::vector<FileEntity> entities;
@@ -119,30 +133,50 @@ int main (int argc, char **argv) {
     using namespace clef::music;
     using namespace clef::music::handler;
 
-    clef::Settings application {};
+    std::unique_ptr<clef::Application> application;
     int debugLevel {};
     auto logLevel { crow::LogLevel::Info };
 
     {
         CLI::App cli {
             "Backend API that edits music file tags (ID3/Vorbis) on request from a web‑based editor.",
-            "app name"
+            clef::name.data()
         };
 
-        cli.add_option("-m,--mount-point", application.mountpoint,
+        std::string databasePath { clef::defaultDatabasePath };
+        std::string mappingPath { clef::defaultMappingPath };
+        std::string mountPoint { clef::defaultMountPoint };
+        bool useClefId { clef::defaultClefIdStatus };
+        int port { clef::defaultPort };
+
+        cli.add_option("-m,--mount-point", mountPoint,
                 "The directory of your music library")->required();
-        cli.add_option("-p,--port", application.port,
+        cli.add_option("-p,--port", port,
             "The application's port to bind in. Default is 18080.")->default_val(18080);
         cli.add_option("-l,--log-level", debugLevel,
                 "temp")->default_val(crow::LogLevel::WARNING);
-        cli.add_option("--database-path", application.dbpath,
-            "Database path location. Default is /")->default_val("data/database.db");
-        cli.add_flag("--use-clefid", application.useClefId, "");
+        cli.add_option("--database-path", databasePath,
+            "Database path location. Default is /");
+        cli.add_flag("--use-clefid", useClefId, "");
         CLI11_PARSE(cli, argc, argv);
 
-        const char* clefId = std::getenv(clef::environments::useClefId.data());
+        const char *clefId = std::getenv(clef::environments::useClefId.data());
         if (clefId) {
-            application.useClefId = clef::utils::parseBool(clefId).value_or(false);
+            useClefId = clef::utils::parseBool(clefId).value_or(false);
+        }
+
+        try {
+            application = std::make_unique<clef::Application>(
+                databasePath,
+                mappingPath,
+                mountPoint,
+                useClefId,
+                port
+            );
+            tag::getTagMap(); // just creates a static tagMap
+        } catch (std::exception &e) {
+            CROW_LOG_CRITICAL << e.what();
+            return EXIT_FAILURE;
         }
     }
 
@@ -155,39 +189,56 @@ int main (int argc, char **argv) {
         default: logLevel = crow::LogLevel::INFO; break;
     }
 
-    CROW_LOG_DEBUG << "mountpoint: " << application.mountpoint << '\n';
-
-#ifndef APP_TESTING
-    if (application.isExist()) {
-        CROW_LOG_CRITICAL << "Error: The specified mount point does not exist. Please verify the path and try again.";
-        std::exit(-1);
-    }
-#endif
-
-    std::unique_ptr<clef::storage::Database> db;
-    try {
-        db = std::make_unique<clef::storage::Database>(application.dbpath);
-        tag::getTagMap(); // pointless call but it builds tag mapping table, could be changed overtime
-    } catch (std::exception &e) {
-        CROW_LOG_CRITICAL << e.what() << '\n';
-        std::exit(1);
-    }
-
-    crow::App<crow::CORSHandler> app;
+    crow::App<crow::CORSHandler, crow::CookieParser, clef::AuthMiddleware> app;
+    app.get_middleware<clef::AuthMiddleware>().setSessionStore(application->getSessionStore());
     CROW_LOG_INFO << clef::name << " v" << clef::version << " is running now";
+    CROW_LOG_INFO << "Mountpoint: " << application->getMountPoint();
+    CROW_LOG_INFO << "Listenting port: " << application->getPort();
 
-    CROW_ROUTE(app, "/api/events/delete").methods("POST"_method)
-    ([&](const crow::request& req) {
-        json j = json::parse(req.body);
-        CROW_LOG_WARNING << "(api/events/delete) deletion";
-        return db->deleteFile(j.value("path", "none"));
+    CROW_ROUTE(app, "/api/auth/login").methods("POST"_method)
+    ([&](const crow::request &req) {
+        constexpr std::string_view logPrefix { "(api/auth/login): " };
+        crow::response res;
+        const json reqbody = json::parse(req.body);
+        std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
+        std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
+
+        auto sessionToken = application->userLogin(username, password);
+        CROW_LOG_WARNING << logPrefix << "sessionToken: " << sessionToken;
+        res.set_header(
+          "Set-Cookie",
+          "clef_session="+ sessionToken +
+          "; HttpOnly; SameSite=Lax; Path=/"
+        );
+        res.set_header("Cache-Control", "no-cache");
+
+        return res;
     });
+
+    // CROW_ROUTE(app, "/api/auth/signup").methods("POST"_method)
+    // ([&](const crow::request &req) {
+    //     constexpr std::string_view logPrefix { "(api/auth/signup): " };
+    //     const json reqbody = json::parse(req.body);
+    //     std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
+    //     std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
+    //
+    //     CROW_LOG_WARNING << logPrefix << username;
+    //     CROW_LOG_WARNING << logPrefix << password;
+    //
+    //     if (application->getUsersDB().createUser(username, password)) {
+    //         CROW_LOG_WARNING << logPrefix << username << " is created successfully";
+    //         return crow::response { 200 };
+    //     }
+    //
+    //     CROW_LOG_WARNING << logPrefix << username << " is taken. Please choose something else!";
+    //     return crow::response { 500, "Username is taken" };
+    // });
 
     CROW_ROUTE(app, "/api/settings").methods("GET"_method)
     ([&]() {
         json j = {
-            {"clef_id", application.useClefId},
-            {"mountpoint", application.mountpoint},
+            {"clef_id", application->getClefIdStatus()},
+            {"mountpoint", application->getMountPoint()},
             {"version", clef::version },
         };
         crow::response response { j.dump() };
@@ -196,7 +247,7 @@ int main (int argc, char **argv) {
     });
 
     CROW_ROUTE(app, "/api/undo").methods("POST"_method)
-    ([&](const crow::request& req) {
+    ([&](const crow::request &req) {
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/undo): " };
@@ -227,7 +278,7 @@ int main (int argc, char **argv) {
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tag;
 
         // 2 - Get information from query
-        SQLite::Statement q { db->getDatabase(),
+        SQLite::Statement q { application->getDatabase(),
             "SELECT action, old_value, new_value FROM tag_history "
             "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ? "
             "ORDER BY id DESC;"
@@ -256,7 +307,7 @@ int main (int argc, char **argv) {
         }
 
         if (isGood) {
-            SQLite::Statement d { db->getDatabase(),
+            SQLite::Statement d { application->getDatabase(),
                 "DELETE FROM tag_history "
                 "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ?;"
             };
@@ -273,10 +324,10 @@ int main (int argc, char **argv) {
     });
 
     CROW_ROUTE(app, "/api/getalbumcover").methods("GET"_method)
-    ([&](const crow::request& req) {
+    ([&](const crow::request &req) {
         crow::response response{500};
         const std::string filePath = req.url_params.get("path");
-        if (!application.isMountPoint(filePath)) {
+        if (!application->isMountPoint(filePath)) {
             return crow::response { 500, "LOL NO" };
         }
         auto handler = Factory::create(clef::utils::getExtension(filePath));
@@ -294,10 +345,10 @@ int main (int argc, char **argv) {
         std::string fileIdentifier = req.url_params.get("identifier");
         std::string clause { "path = ?" }; // By default, it searches by path
 
-        if (application.useClefId) // Match history by Clef_ID when enabled
+        if (application->getClefIdStatus()) // Match history by Clef_ID when enabled
             clause = "clefId = ?";
 
-        SQLite::Statement query(db->getDatabase(), "SELECT * FROM tag_history WHERE "
+        SQLite::Statement query(application->getDatabase(), "SELECT * FROM tag_history WHERE "
             +clause +" ORDER BY changed_at DESC");
         query.bind(1, fileIdentifier.c_str());
         json result = json::array();
@@ -325,7 +376,7 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/getmntpoint").methods("GET"_method)
     ([&]() {
         json mountpoint;
-        mountpoint["path"] = application.mountpoint;
+        mountpoint["path"] = application->getMountPoint();
         crow::response response{ 200, mountpoint.dump() };
         response.set_header("Content-Type", "application/json");
 
@@ -339,7 +390,7 @@ int main (int argc, char **argv) {
         constexpr std::string_view logPrefix { "(api/edittag): " };
         const ordered_json body = json::parse(req.body);
 
-        clef::TagModification tagStruct {
+        clef::TagChangeRequest tagStruct {
             .filePath = body.value("path", clef::jsonMissingValue.data()),
             .fieldType = body.value("tagType", clef::jsonMissingValue.data()),
             .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue.data()), String::UTF8 },
@@ -363,11 +414,11 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useClefId) id.clefId = clef::utils::generateId();
-        crow::response response(handler->editMusicTags(tagStruct, application.useClefId ? &id.clefId : nullptr));
+        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+        crow::response response(handler->editMusicTags(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
 
         if (response.code == 200) {
-            return db->insertEdit(tagStruct, id);
+            return application->getTagHistoryDB().insertEdit(tagStruct, id);
         }
 
         return response;
@@ -380,7 +431,7 @@ int main (int argc, char **argv) {
         constexpr std::string_view logPrefix { "(api/addfieldtag): " };
         const ordered_json body = json::parse(req.body);
 
-        clef::TagModification tagStruct {
+        clef::TagChangeRequest tagStruct {
             .filePath = body.value("path", clef::jsonMissingValue.data()),
             .fieldType = body.value("fieldType", clef::jsonMissingValue.data()),
             .value = { body.value("value", clef::jsonMissingValue.data()), String::UTF8 }
@@ -403,11 +454,11 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useClefId) id.clefId = clef::utils::generateId();
-        crow::response response(handler->addMusicTag(tagStruct, application.useClefId ? &id.clefId : nullptr));
+        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+        crow::response response(handler->addMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
 
         if (response.code == 200) {
-            return db->insertAdd(tagStruct, id);
+            return application->getTagHistoryDB().insertAdd(tagStruct, id);
         }
         return response;
     });
@@ -415,11 +466,12 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/removefieldtag").methods("POST"_method)
     ([&](const crow::request &req) {
         using namespace TagLib;
+        using namespace clef::music::tag;
 
         constexpr std::string_view logPrefix { "(api/removefieldtag): " };
         const ordered_json body = json::parse(req.body);
 
-        clef::TagModification tagStruct {
+        clef::TagChangeRequest tagStruct {
             .filePath = body.value("path", "none"),
             .fieldType = body.value("fieldType", "none"),
             .value = { body.value("value", "none"), String::UTF8 }
@@ -429,16 +481,16 @@ int main (int argc, char **argv) {
 
         CROW_LOG_WARNING << "(api/removefieldtag) requested path: " << tagStruct.filePath;
 
-        if (application.useClefId) {
+        if (application->getClefIdStatus()) {
             std::string_view fieldType { tagStruct.fieldType };
-            for (const auto prefix : { clef::music::prefix::mp3, clef::music::prefix::m4a }) {
+            for (const auto prefix : { prefix::mp3, prefix::m4a }) {
                 if (fieldType.starts_with(prefix)) {
                     fieldType.remove_prefix(prefix.size());
                     break;
                 }
             }
             if (String(std::string(fieldType), String::UTF8).upper()
-                == String(std::string(clef::music::tag::clefId), String::UTF8).upper())
+                == String(std::string(tag::clefId), String::UTF8).upper())
                 return crow::response { 400, "You cannot modify Clef_ID" };
         }
 
@@ -451,11 +503,11 @@ int main (int argc, char **argv) {
         tagStruct.fieldType = rtag.value();
         CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
 
-        if (application.useClefId) id.clefId = clef::utils::generateId();
-        crow::response response(handler->removeMusicTag(tagStruct, application.useClefId ? &id.clefId : nullptr));
+        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+        crow::response response(handler->removeMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
 
         if (response.code == 200) {
-            return db->insertRemove(tagStruct, id);
+            return application->getTagHistoryDB().insertRemove(tagStruct, id);
         }
 
         return response;
@@ -465,58 +517,57 @@ int main (int argc, char **argv) {
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/store): " };
         crow::multipart::message_view msg (req);
-        const std::string_view *filepart { nullptr }; // Store binary data of a file
+        const std::string_view *fileBinary { nullptr }; // Store binary data of a file
         std::string_view filepath {};
         std::string_view filename {};
 
         // Parse multipart map
-        for (const auto &entry : msg.part_map) {
+        for (const auto & [fieldName, part] : msg.part_map) {
             // Find "path" in part map, assign file's path to filepath and log it
-            if (entry.first == "path") {
-                filepath = entry.second.body;
-                CROW_LOG_INFO << "(api/store) path = " << filepath;
-
-                if (!application.isMountPoint(std::string(filepath))) {
-                    CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-                    return crow::response{ 500, "The requested path is not a mount-point" };
-                }
+            if (fieldName == "path") {
+                filepath = part.body;
+                CROW_LOG_INFO << logPrefix << "requested path: " << filepath;
+                continue;
             }
             // Find "file" in part map, assign binary data to filepart variable
             // Search for "Content-Disposition" header, search "filename" in it
             // Assign it to filename variable and log it
-            if (entry.first == "file") {
-                filepart = &entry.second.body; // Binary data
-                auto header_it = entry.second.headers.find("Content-Disposition");
-                if (header_it == entry.second.headers.end()) {
-                    CROW_LOG_ERROR << "(api/store) No Content-Disposition found";
+            if (fieldName == "file") {
+                fileBinary = &part.body; // Binary data
+                auto header_it = part.headers.find("Content-Disposition");
+                if (header_it == part.headers.end()) {
+                    CROW_LOG_ERROR << logPrefix << "No Content-Disposition found";
                     return crow::response(400, "Content-Disposition Not Found");
                 }
                 for (const auto &[key, value] : header_it->second.params) {
-                    CROW_LOG_DEBUG << "(api/store)" << key << " = " << value;
+                    CROW_LOG_DEBUG << logPrefix << key << " = " << value;
                     if (key == "filename") {
                         filename = value;
+                        break;
                     }
                 }
-                CROW_LOG_INFO << "(api/store) filename = " << filename;
-            }
-
-            // Now we need to store files on a drive
-            fs::path destinationPath = fs::path(filepath) / fs::path(filename).filename();
-            CROW_LOG_DEBUG << "(api/store) destinationPath.string(): " << destinationPath.string();
-            CROW_LOG_DEBUG << "(api/store) destinationPath.filename(): " << destinationPath.filename();
-            std::ofstream outfile { destinationPath, std::ios::binary };
-            if (filepart) {
-                CROW_LOG_DEBUG << "(api/store) outFile.write() starts";
-                outfile.write(filepart->data(), filepart->size());
-                CROW_LOG_DEBUG << "(api/store) outFile.write() ends";
-                outfile.close();
-                CROW_LOG_DEBUG << "(api/store) outFile.close()";
-            } else {
-                CROW_LOG_CRITICAL << "(api/store) std::string_view *filepart is nullptr";
-                return crow::response { 500, "nullptr" };
             }
         }
-        return crow::response{ 200, "OK"};
+        if (!application->isMountPoint(filepath)) {
+            CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+            return crow::response{ 403, "The requested path is not a mount-point" };
+        }
+
+        // Now we need to store files on a drive
+        fs::path destinationPath = fs::path(filepath) / fs::path(filename).filename();
+        CROW_LOG_WARNING << logPrefix << "destinationPath.string(): " << destinationPath.string();
+        CROW_LOG_WARNING << logPrefix << "destinationPath.filename(): " << destinationPath.filename();
+        std::ofstream outfile { destinationPath, std::ios::binary };
+        if (fileBinary) {
+            CROW_LOG_DEBUG << logPrefix << "outFile.write() starts";
+            outfile.write(fileBinary->data(), fileBinary->size());
+            CROW_LOG_DEBUG << logPrefix << "outFile.write() ends";
+            outfile.close();
+            CROW_LOG_DEBUG << logPrefix << "outFile.close()";
+            return crow::response{ 200, "OK"};
+        }
+        CROW_LOG_CRITICAL << logPrefix << filename << ": file part not found";
+        return crow::response { 400, std::string(filename) + " file part not found" };
     });
 
     CROW_ROUTE(app, "/api/rename").methods("POST"_method)
@@ -550,7 +601,7 @@ int main (int argc, char **argv) {
 
         const char *file = req.url_params.get("path");
         if (file) {
-            if (!application.isMountPoint(file)) {
+            if (!application->isMountPoint(file)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
                 return crow::response { 403, "The requested path is not a mount-point" };
             }
@@ -595,7 +646,7 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/list-v2").methods("GET"_method)
     ([&] (const crow::request &req){
         using namespace clef;
-        using SortType = QueryList::SortType;
+        using SortType = DirectoryListOptions::SortType;
 
         constexpr std::string_view logPrefix { "(api/list-v2): "};
         try {
@@ -623,7 +674,7 @@ int main (int argc, char **argv) {
             }
 
             if (path) {
-                if (!application.isMountPoint(path)) {
+                if (!application->isMountPoint(path)) {
                     CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
                     return crow::response { 403, "The requested path is not a mount-point" };
                 }
@@ -636,7 +687,7 @@ int main (int argc, char **argv) {
                 }
                 if (fs::is_regular_file(fpath))
                     fpath = fpath.parent_path();
-                const QueryList q {
+                const DirectoryListOptions q {
                     .offset = static_cast<std::size_t>(std::max(0, std::stoi(offset))),
                     .limit = static_cast<std::size_t>(std::max(0, std::stoi(limit))),
                     .ascending = ascending,
@@ -667,7 +718,7 @@ int main (int argc, char **argv) {
 
     app.loglevel(logLevel);
     app.use_compression(crow::compression::GZIP);
-    app.port(application.port).multithreaded().run();
+    app.port(application->getPort()).multithreaded().run();
 
     return 0;
 }

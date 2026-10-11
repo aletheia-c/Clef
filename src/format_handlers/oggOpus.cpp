@@ -1,6 +1,13 @@
 #include "oggOpus.h"
-#include "../../include/music.h"
+
+#include <cstddef>
+#include <utility>
+
+#include <crow/logging.h>
 #include <opusfile.h>
+
+#include "../../include/tagConstants.h"
+#include "../../include/tagMapping.h"
 
 using namespace clef::music::handler;
 using namespace clef::music::tag;
@@ -33,7 +40,7 @@ std::expected<json, std::string> OggOpus::listMusicTags(const std::string &fileP
 
     json j;
     const auto tag = file.tag();
-    for (const auto & [key, values]: tag->fieldListMap()) {
+    for (const auto &[key, values]: tag->fieldListMap()) {
         if (values.size() > 1) {
             const std::size_t temp{values.size()};
             for (std::size_t i{0}; i < temp; ++i) {
@@ -49,7 +56,7 @@ std::expected<json, std::string> OggOpus::listMusicTags(const std::string &fileP
     return j;
 }
 
-crow::response OggOpus::removeMusicTag(const TagModification &tagStruct, std::string *clefId) {
+crow::response OggOpus::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
     TagLib::Ogg::Opus::File file{tagStruct.filePath.c_str()};
 
     if (!file.isValid()) {
@@ -92,7 +99,7 @@ crow::response OggOpus::removeMusicTag(const TagModification &tagStruct, std::st
     return {200, "OK"};
 }
 
-crow::response OggOpus::addMusicTag(const TagModification &tagStruct, std::string *clefId) {
+crow::response OggOpus::addMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
     TagLib::Ogg::Opus::File file{tagStruct.filePath.c_str()};
 
     if (!file.isValid()) {
@@ -114,7 +121,7 @@ crow::response OggOpus::addMusicTag(const TagModification &tagStruct, std::strin
     return {200, "File/s saved!"};
 }
 
-crow::response OggOpus::editMusicTags(const TagModification &tagStruct, std::string *clefId) {
+crow::response OggOpus::editMusicTags(const TagChangeRequest &tagStruct, std::string *clefId) {
     using namespace clef::music;
     TagLib::Ogg::Opus::File file{tagStruct.filePath.c_str()};
 
