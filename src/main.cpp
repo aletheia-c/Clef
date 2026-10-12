@@ -574,7 +574,7 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/rename").methods("POST"_method)
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/rename): " };
-		
+
 		if (!req.body.empty()) {
 			const ordered_json body = json::parse(req.body);
 			const std::string_view path = body.value("path", clef::jsonMissingValue);
@@ -589,7 +589,12 @@ int main (int argc, char **argv) {
 			}
 			const fs::path newDirictoryName { "/" / fs::path (path).parent_path() / fs::path(newName) };
 			const fs::path oldDirectoryName { path };
-			fs::rename(oldDirectoryName, newDirictoryName);
+		    std::error_code ec;
+			fs::rename(oldDirectoryName, newDirictoryName, ec);
+		    if (ec) {
+		        CROW_LOG_ERROR << logPrefix << ec.value() << ": " << ec.message();
+		        return crow::response { 400, ec.message() };
+		    }
 			CROW_LOG_WARNING << logPrefix << oldDirectoryName << " has been renamed to " << newDirictoryName;
 			return crow::response { 200 };
 		}
