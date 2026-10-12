@@ -586,14 +586,29 @@ int main (int argc, char **argv) {
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix {"(api/mkdir): "};
 
-        const ordered_json body = json::parse(req.body);
-        const std::string dir { body["path"].get<std::string>() + "/" + body["name"].get<std::string>() }; //ugly as fuck
-        if (fs::exists(dir)) {
-            CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
-            return crow::response { 500, "Error: The specified directory already exist" };
+        if (!req.body.empty()) {
+            const ordered_json body = json::parse(req.body);
+            const std::string_view path = body.value("path", clef::jsonMissingValue);
+            const std::string_view name = body.value("name", clef::jsonMissingValue);
+            if (!application->isJsonValid(path, name)) {
+                CROW_LOG_ERROR << logPrefix << "'path' or/and 'name' is not valid!";
+                return crow::response { 400, "'path' or/and 'name' is not valid!" };
+            }
+            if (!application->isMountPoint(path)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+                return crow::response { 403, "The requested path is not a mount-point" };
+            }
+            const fs::path directoryName { fs::path(path) / fs::path(name) };
+            if (fs::exists(directoryName)) {
+                CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
+                return crow::response { 500, "The specified directory already exist" };
+            }
+            fs::create_directory(directoryName);
+            CROW_LOG_WARNING << logPrefix << directoryName << " has been created!";
+            return crow::response{ 201 };
         }
-        fs::create_directory(dir);
-        return crow::response{ 200 };
+        CROW_LOG_ERROR << logPrefix << "request body is empty!";
+        return crow::response { 400, "request body is empty" };
     });
 
     CROW_ROUTE(app, "/api/tag").methods("GET"_method)
