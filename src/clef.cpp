@@ -5,6 +5,10 @@ namespace clef {
         return fs::exists(path);
     }
 
+    bool Application::compare(std::string_view ls, std::string_view rs) {
+        return ls == rs;
+    }
+
     bool Application::isMountPoint(std::string_view rpath) const {
         const fs::path mp{ fs::canonical(m_mountPoint) };
         const fs::path rp{ fs::weakly_canonical(rpath) }; // In case if a filepath doesn't exist

@@ -1,6 +1,7 @@
 #ifndef CLEF_CLEF_H
 #define CLEF_CLEF_H
 
+#include <concepts>
 #include <filesystem>
 #include <string_view>
 
@@ -13,6 +14,9 @@
 
 namespace clef {
     namespace fs = std::filesystem;
+
+    template<typename T>
+    concept StringOrView = std::same_as<T, std::string> || std::same_as<T, std::string_view>;
 
     namespace environments {
         constexpr std::string_view useClefId { "CLEF_USEID" };
@@ -31,6 +35,7 @@ namespace clef {
         int m_port { 18080 };
 
         [[nodiscard]] bool isExist(std::string_view path) const;
+        static bool compare(std::string_view ls, std::string_view rs);
     public:
         Application() = delete;
 
@@ -56,8 +61,6 @@ namespace clef {
         Application(Application &&) = delete;
         Application &operator=(Application &&) = delete;
 
-        [[nodiscard]] bool isMountPoint(std::string_view rpath) const;
-
         SessionStore *getSessionStore() { return &m_sessionStore; }
         SQLite::Database &getDatabase() { return m_database; }
         [[nodiscard]] const storage::TagHistory &getTagHistoryDB() const { return m_tagHistory; }
@@ -65,6 +68,10 @@ namespace clef {
         [[nodiscard]] std::string_view getMountPoint() const { return m_mountPoint.c_str(); }
         [[nodiscard]] bool getClefIdStatus() const { return m_useClefId; }
         [[nodiscard]] int getPort() const { return m_port; }
+
+        [[nodiscard]] bool isMountPoint(std::string_view rpath) const;
+        template<StringOrView... Args>
+        bool isJsonValid(Args... args) { return !(compare(args, jsonMissingValue) && ...); }
 
         [[nodiscard]] std::string userLogin(std::string_view username, std::string_view password);
     };
