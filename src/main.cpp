@@ -615,13 +615,13 @@ int main (int argc, char **argv) {
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/tag): " };
 
-        const char *file = req.url_params.get("path");
-        if (file) {
-            if (!application->isMountPoint(file)) {
+        const char *path = req.url_params.get("path");
+        if (path) {
+            if (!application->isMountPoint(path)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
                 return crow::response { 403, "The requested path is not a mount-point" };
             }
-            const std::string_view filePath = file;
+            const std::string_view filePath = path;
             const std::string fileExtension = fs::path(filePath).extension().string();
             CROW_LOG_WARNING << logPrefix << "requested file: " << filePath;
 
