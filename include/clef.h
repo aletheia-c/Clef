@@ -71,7 +71,7 @@ namespace clef {
 
         [[nodiscard]] bool isMountPoint(std::string_view rpath) const;
         template<StringOrView... Args>
-        bool isJsonValid(Args... args) { return !(compare(args, jsonMissingValue) && ...); }
+        bool isJsonValid(Args... args) { return !(compare(args, jsonMissingValue) || ...); }
 
         [[nodiscard]] std::string userLogin(std::string_view username, std::string_view password);
     };
