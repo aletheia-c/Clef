@@ -574,12 +574,27 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/rename").methods("POST"_method)
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/rename): " };
-
-        const ordered_json root = json::parse(req.body);
-        const std::string newdirname { "/" + root["newName"].get<std::string>() };
-        const fs::path oldpath { root["path"] };
-        fs::rename(oldpath, oldpath.parent_path().string() + newdirname);
-        return crow::response{ 200, "OK"};
+		
+		if (!req.body.empty()) {
+			const ordered_json body = json::parse(req.body);
+			const std::string_view path = body.value("path", clef::jsonMissingValue);
+			const std::string_view newName = body.value("newName", clef::jsonMissingValue);
+			if (!application->isJsonValid(path, newName)) {
+				CROW_LOG_ERROR << logPrefix << "'path' or/and 'newName' is not valid!";
+				return crow::response { 400, "'path' or/and 'newName' is not valid!" };
+			}
+			if (!application->isMountPoint(path)) {
+				CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+				return crow::response { 403, "The requested filepath is not a mount-point" };
+			}
+			const fs::path newDirictoryName { "/" / fs::path (path).parent_path() / fs::path(newName) };
+			const fs::path oldDirectoryName { path };
+			fs::rename(oldDirectoryName, newDirictoryName);
+			CROW_LOG_WARNING << logPrefix << oldDirectoryName << " has been renamed to " << newDirictoryName;
+			return crow::response { 200 };
+		}
+		CROW_LOG_ERROR << logPrefix << "request body is empty";
+        return crow::response{ 400, "request body is empty"};
     });
 
     CROW_ROUTE(app, "/api/mkdir").methods("POST"_method)
