@@ -193,16 +193,17 @@ export class DirectoryView {
   }
 
   private handleRowClick(event: MouseEvent): void {
-    const target = event.target as Element;
-    const fileButton = target.closest('button');
-    if (fileButton) {
-      this.select(fileButton.closest('tr')!, event);
+    const row = (event.target as Element).closest('tr');
+    if (!row) {
       return;
     }
 
-    const link = target.closest('a');
+    const link = row.querySelector('a');
+    if (!link) {
+      this.select(row, event);
+      return;
+    }
     if (
-      !link ||
       event.button !== 0 ||
       event.ctrlKey ||
       event.metaKey ||
