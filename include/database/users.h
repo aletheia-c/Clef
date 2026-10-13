@@ -2,6 +2,9 @@
 #define CLEF_USERSDATABASE_H
 
 #include <SQLiteCpp/Database.h>
+#include <cstdint>
+#include <optional>
+#include <string_view>
 
 namespace clef::storage {
     class Users {

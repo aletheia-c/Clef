@@ -2,18 +2,27 @@
 
 namespace clef {
     bool Application::isExist(std::string_view path) const {
-        return std::filesystem::exists(path);
+        return fs::exists(path);
+    }
+
+    bool Application::compare(std::string_view ls, std::string_view rs) {
+        return ls == rs;
     }
 
     bool Application::isMountPoint(std::string_view rpath) const {
-        const std::string mp{ canonical(m_mountPoint) }; // canonical mount point
-        const std::string rp{fs::canonical(rpath)}; // canonical requested path
+        const fs::path mp{ fs::canonical(m_mountPoint) };
+        const fs::path rp{ fs::weakly_canonical(rpath) }; // In case if a filepath doesn't exist
 
-        if (rp.starts_with(mp)) {
-            return true;
+        auto mpIt = mp.begin();
+        auto rpIt = rp.begin();
+
+        while (mpIt != mp.end() && rpIt != rp.end()) {
+            if (*mpIt != *rpIt)
+                return false;
+            ++mpIt; ++rpIt;
         }
 
-        return false;
+        return mpIt == mp.end();
     }
 
     std::string Application::userLogin(std::string_view username, std::string_view password) {

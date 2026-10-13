@@ -22,14 +22,14 @@
 #include <nlohmann/json.hpp>
 #include <SQLiteCpp/SQLiteCpp.h>
 
-#include "../include/authentication/authMiddleware.h"
+//#include "../include/authentication/authMiddleware.h"
 #include "../include/directoryListing.h"
 #include "../include/clef.h"
 #include "../include/clefConstants.h"
 #include "../include/tagChangeRequest.h"
 #include "../include/tagConstants.h"
 #include "../include/database/tagHistory.h"
-#include "../include/database/users.h"
+//#include "../include/database/users.h"
 #include "../include/tagMapping.h"
 #include "../include/utils.h"
 #include "format_handlers/factory.h"
@@ -189,31 +189,32 @@ int main (int argc, char **argv) {
         default: logLevel = crow::LogLevel::INFO; break;
     }
 
-    crow::App<crow::CORSHandler, crow::CookieParser, clef::AuthMiddleware> app;
-    app.get_middleware<clef::AuthMiddleware>().setSessionStore(application->getSessionStore());
+    //crow::App<crow::CORSHandler, crow::CookieParser, clef::AuthMiddleware> app;
+    //app.get_middleware<clef::AuthMiddleware>().setSessionStore(application->getSessionStore());
+    crow::App<crow::CORSHandler> app;
     CROW_LOG_INFO << clef::name << " v" << clef::version << " is running now";
     CROW_LOG_INFO << "Mountpoint: " << application->getMountPoint();
     CROW_LOG_INFO << "Listenting port: " << application->getPort();
 
-    CROW_ROUTE(app, "/api/auth/login").methods("POST"_method)
-    ([&](const crow::request &req) {
-        constexpr std::string_view logPrefix { "(api/auth/login): " };
-        crow::response res;
-        const json reqbody = json::parse(req.body);
-        std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
-        std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
-
-        auto sessionToken = application->userLogin(username, password);
-        CROW_LOG_WARNING << logPrefix << "sessionToken: " << sessionToken;
-        res.set_header(
-          "Set-Cookie",
-          "clef_session="+ sessionToken +
-          "; HttpOnly; SameSite=Lax; Path=/"
-        );
-        res.set_header("Cache-Control", "no-cache");
-
-        return res;
-    });
+    // CROW_ROUTE(app, "/api/auth/login").methods("POST"_method)
+    // ([&](const crow::request &req) {
+    //     constexpr std::string_view logPrefix { "(api/auth/login): " };
+    //     crow::response res;
+    //     const json reqbody = json::parse(req.body);
+    //     std::string username { reqbody.value("username", clef::jsonMissingValue.data()) };
+    //     std::string password { reqbody.value("password", clef::jsonMissingValue.data()) };
+    //
+    //     auto sessionToken = application->userLogin(username, password);
+    //     CROW_LOG_WARNING << logPrefix << "sessionToken: " << sessionToken;
+    //     res.set_header(
+    //       "Set-Cookie",
+    //       "clef_session="+ sessionToken +
+    //       "; HttpOnly; SameSite=Lax; Path=/"
+    //     );
+    //     res.set_header("Cache-Control", "no-cache");
+    //
+    //     return res;
+    // });
 
     // CROW_ROUTE(app, "/api/auth/signup").methods("POST"_method)
     // ([&](const crow::request &req) {
@@ -573,39 +574,69 @@ int main (int argc, char **argv) {
     CROW_ROUTE(app, "/api/rename").methods("POST"_method)
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/rename): " };
-
-        const ordered_json root = json::parse(req.body);
-        const std::string newdirname { "/" + root["newName"].get<std::string>() };
-        const fs::path oldpath { root["path"] };
-        fs::rename(oldpath, oldpath.parent_path().string() + newdirname);
-        return crow::response{ 200, "OK"};
+		
+		if (!req.body.empty()) {
+			const ordered_json body = json::parse(req.body);
+			const std::string_view path = body.value("path", clef::jsonMissingValue);
+			const std::string_view newName = body.value("newName", clef::jsonMissingValue);
+			if (!application->isJsonValid(path, newName)) {
+				CROW_LOG_ERROR << logPrefix << "'path' or/and 'newName' is not valid!";
+				return crow::response { 400, "'path' or/and 'newName' is not valid!" };
+			}
+			if (!application->isMountPoint(path)) {
+				CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+				return crow::response { 403, "The requested filepath is not a mount-point" };
+			}
+			const fs::path newDirictoryName { "/" / fs::path (path).parent_path() / fs::path(newName) };
+			const fs::path oldDirectoryName { path };
+			fs::rename(oldDirectoryName, newDirictoryName);
+			CROW_LOG_WARNING << logPrefix << oldDirectoryName << " has been renamed to " << newDirictoryName;
+			return crow::response { 200 };
+		}
+		CROW_LOG_ERROR << logPrefix << "request body is empty";
+        return crow::response{ 400, "request body is empty"};
     });
 
     CROW_ROUTE(app, "/api/mkdir").methods("POST"_method)
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix {"(api/mkdir): "};
 
-        const ordered_json body = json::parse(req.body);
-        const std::string dir { body["path"].get<std::string>() + "/" + body["name"].get<std::string>() }; //ugly as fuck
-        if (fs::exists(dir)) {
-            CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
-            return crow::response { 500, "Error: The specified directory already exist" };
+        if (!req.body.empty()) {
+            const ordered_json body = json::parse(req.body);
+            const std::string_view path = body.value("path", clef::jsonMissingValue);
+            const std::string_view name = body.value("name", clef::jsonMissingValue);
+            if (!application->isJsonValid(path, name)) {
+                CROW_LOG_ERROR << logPrefix << "'path' or/and 'name' is not valid!";
+                return crow::response { 400, "'path' or/and 'name' is not valid!" };
+            }
+            if (!application->isMountPoint(path)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+                return crow::response { 403, "The requested path is not a mount-point" };
+            }
+            const fs::path directoryName { fs::path(path) / fs::path(name) };
+            if (fs::exists(directoryName)) {
+                CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
+                return crow::response { 500, "The specified directory already exist" };
+            }
+            fs::create_directory(directoryName);
+            CROW_LOG_WARNING << logPrefix << directoryName << " has been created!";
+            return crow::response{ 201 };
         }
-        fs::create_directory(dir);
-        return crow::response{ 200 };
+        CROW_LOG_ERROR << logPrefix << "request body is empty!";
+        return crow::response { 400, "request body is empty" };
     });
 
     CROW_ROUTE(app, "/api/tag").methods("GET"_method)
     ([&](const crow::request &req) {
         constexpr std::string_view logPrefix { "(api/tag): " };
 
-        const char *file = req.url_params.get("path");
-        if (file) {
-            if (!application->isMountPoint(file)) {
+        const char *path = req.url_params.get("path");
+        if (path) {
+            if (!application->isMountPoint(path)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
                 return crow::response { 403, "The requested path is not a mount-point" };
             }
-            const std::string_view filePath = file;
+            const std::string_view filePath = path;
             const std::string fileExtension = fs::path(filePath).extension().string();
             CROW_LOG_WARNING << logPrefix << "requested file: " << filePath;
 
