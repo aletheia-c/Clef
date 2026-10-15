@@ -623,7 +623,12 @@ int main (int argc, char **argv) {
                 CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
                 return crow::response { 500, "The specified directory already exist" };
             }
-            fs::create_directory(directoryName);
+            std::error_code ec;
+            fs::create_directory(directoryName, ec);
+            if (ec) {
+                CROW_LOG_ERROR << ec.value() << ": " << ec.message();
+                return crow::response { 400, ec.message() };
+            }
             CROW_LOG_WARNING << logPrefix << directoryName << " has been created!";
             return crow::response{ 201 };
         }
