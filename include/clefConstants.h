@@ -4,14 +4,14 @@
 #include <string_view>
 
 namespace clef {
-    constexpr std::string_view version { "0.0.1" };
-    constexpr std::string_view name { "Clef" };
-    constexpr std::string_view jsonMissingValue { "__json_missing_value" };
-    constexpr std::string_view defaultDatabasePath { "data/database.db" };
-    constexpr std::string_view defaultMappingPath { "data/mapping.json" };
-    constexpr std::string_view defaultMountPoint { "/music" };
-    constexpr bool defaultClefIdStatus { false };
-    constexpr int defaultPort { 18080 };
+    inline constexpr std::string_view version { "0.0.1" };
+    inline constexpr std::string_view name { "Clef" };
+    inline constexpr std::string_view jsonMissingValue { "__json_missing_value" };
+    inline constexpr std::string_view defaultDatabasePath { "data/database.db" };
+    inline constexpr std::string_view defaultMappingPath { "data/mapping.json" };
+    inline constexpr std::string_view defaultMountPoint { "/music" };
+    inline constexpr bool defaultClefIdStatus { false };
+    inline constexpr int defaultPort { 18080 };
 
     namespace http::messages {
         inline constexpr std::string_view bodyRequired              { "Request body is required." };
