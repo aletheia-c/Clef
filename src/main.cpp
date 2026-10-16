@@ -232,7 +232,7 @@ int main (int argc, char **argv) {
     //     }
     //
     //     CROW_LOG_WARNING << logPrefix << username << " is taken. Please choose something else!";
-    //     return crow::response { 500, "Username is taken" };
+    //     return crow::response { 500, "This username is already taken." };
     // });
 
     CROW_ROUTE(app, "/api/settings").methods("GET"_method)
@@ -249,12 +249,13 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/undo").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/undo): " };
         json j = json::parse(req.body);
 
-        crow::response response { 500 };
+        crow::response response { 500, http::messages::internalError.data() };
 
         // 1 - Parse information from request to query database
         // All we need to have is the following variables:
@@ -272,7 +273,7 @@ int main (int argc, char **argv) {
         auto rtag = handler->resolveTag(tag);
         if (!rtag.has_value()) {
             CROW_LOG_WARNING << logPrefix << rtag.error();
-            response.body = rtag.error();
+            response.body = http::messages::unsupportedTag.data();
             return response;
         }
         tag = rtag.value();
@@ -319,6 +320,7 @@ int main (int argc, char **argv) {
             d.exec();
 
             response.code = 200;
+            response.body = "Changes undone.";
         }
 
         return response;
@@ -326,19 +328,20 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/getalbumcover").methods("GET"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         constexpr std::string_view logPrefix { "(api/getalbumcover): " };
 
-        crow::response response{501, "Not implemented" };
+        crow::response response{501, "Album artwork extraction is not implemented for this file format." };
         const char *path = req.url_params.get("path");
         if (path) {
             if (!application->isMountPoint(path)) {
-                CROW_LOG_ERROR << logPrefix << "The requested path is not a mount-point";
-                return crow::response { 403, "The requested path is not a mount-point" };
+                CROW_LOG_ERROR << logPrefix << http::messages::pathForbidden.data();
+                return crow::response { 403, http::messages::pathForbidden.data() };
             }
             auto handler = Factory::create(clef::utils::getExtension(path));
             if (!handler) {
                 CROW_LOG_ERROR << logPrefix;
-                return crow::response { 422 };
+                return crow::response { 422, http::messages::unsupportedFileFormat.data() };
             }
             auto picture = handler->getAlbumCover(path);
 
@@ -349,7 +352,7 @@ int main (int argc, char **argv) {
             return response;
         }
         CROW_LOG_ERROR << logPrefix;
-        return crow::response { 400 };
+        return crow::response { 400, http::messages::pathRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/gethistory").methods("GET"_method)
@@ -397,6 +400,7 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/edittag").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/edittag): " };
@@ -411,11 +415,11 @@ int main (int argc, char **argv) {
             };
             if (!tagStruct.isValid()) {
                 CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
-                return crow::response { 400, "Request is not valid. Please check sending request" };
+                return crow::response { 400, http::messages::invalidRequestFields.data() };
             }
             if (!application->isMountPoint(tagStruct.filePath)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-                return crow::response { 403, "The requested filepath is not a mount-point" };
+                return crow::response { 403, http::messages::pathForbidden.data() };
             }
             clef::storage::id id {};
             const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
@@ -425,12 +429,12 @@ int main (int argc, char **argv) {
             const auto handler = Factory::create(fileExtension);
             if (!handler) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
-                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+                return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
             const auto rtag = handler->resolveTag(tagStruct.fieldType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << rtag.error();
-                return crow::response { 500, rtag.error() };
+                return crow::response { 500, http::messages::unsupportedTag.data() };
             }
             tagStruct.fieldType = rtag.value();
             CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
@@ -444,11 +448,12 @@ int main (int argc, char **argv) {
             return response;
         }
         CROW_LOG_ERROR << logPrefix << "request body is empty!";
-        return crow::response { 400, "request body is empty" };
+        return crow::response { 400, http::messages::bodyRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/addfieldtag").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/addfieldtag): " };
@@ -463,11 +468,11 @@ int main (int argc, char **argv) {
             };
             if (!tagStruct.isValid()) {
                 CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
-                return crow::response { 400, "Request is not valid. Please check sending request" };
+                return crow::response { 400, http::messages::invalidRequestFields.data() };
             }
             if (!application->isMountPoint(tagStruct.filePath)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-				return crow::response { 403, "The requested filepath is not a mount-point" };
+				return crow::response { 403, http::messages::pathForbidden.data() };
             }
             clef::storage::id id {};
             const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
@@ -477,12 +482,12 @@ int main (int argc, char **argv) {
             const auto handler = Factory::create(fileExtension);
             if (!handler) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
-                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+                return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
             const auto rtag = handler->resolveTag(tagStruct.fieldType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << rtag.error();
-                return crow::response { 500, rtag.error() };
+                return crow::response { 500, http::messages::unsupportedTag.data() };
             }
             tagStruct.fieldType = rtag.value();
             CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
@@ -496,11 +501,12 @@ int main (int argc, char **argv) {
             return response;
         }
         CROW_LOG_ERROR << logPrefix << "request body is empty!";
-        return crow::response { 400, "request body is empty" };
+        return crow::response { 400, http::messages::bodyRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/removefieldtag").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         using namespace TagLib;
         using namespace clef::music::tag;
 
@@ -516,11 +522,11 @@ int main (int argc, char **argv) {
             };
             if (!tagStruct.isValid()) {
                 CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
-                return crow::response { 400, "Request is not valid. Please check sending request" };
+                return crow::response { 400, http::messages::invalidRequestFields.data() };
             }
             if (!application->isMountPoint(tagStruct.filePath)) {
                 CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-				return crow::response { 403, "The requested filepath is not a mount-point" };
+				return crow::response { 403, http::messages::pathForbidden.data() };
             }
             clef::storage::id id {};
             const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
@@ -537,18 +543,18 @@ int main (int argc, char **argv) {
                 }
                 if (String(std::string(fieldType), String::UTF8).upper()
                     == String(std::string(tag::clefId), String::UTF8).upper())
-                    return crow::response { 400, "You cannot modify Clef_ID" };
+                    return crow::response { 400, "Clef ID is managed automatically and cannot be modified." };
             }
 
             const auto handler = Factory::create(fileExtension);
             if (!handler) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
-                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+                return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
             const auto rtag = handler->resolveTag(tagStruct.fieldType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << logPrefix << rtag.error();
-                return crow::response { 422, rtag.error() };
+                return crow::response { 422, http::messages::unsupportedTag.data() };
             }
             tagStruct.fieldType = rtag.value();
             CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
@@ -562,11 +568,12 @@ int main (int argc, char **argv) {
             return response;
         }
         CROW_LOG_ERROR << logPrefix << "request body is empty!";
-        return crow::response { 400, "request body is empty" };
+        return crow::response { 400, http::messages::bodyRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/store").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         constexpr std::string_view logPrefix { "(api/store): " };
         crow::multipart::message_view msg (req);
         const std::string_view *fileBinary { nullptr }; // Store binary data of a file
@@ -588,8 +595,8 @@ int main (int argc, char **argv) {
                 fileBinary = &part.body; // Binary data
                 auto header_it = part.headers.find("Content-Disposition");
                 if (header_it == part.headers.end()) {
-                    CROW_LOG_ERROR << logPrefix << "No Content-Disposition found";
-                    return crow::response(400, "Content-Disposition Not Found");
+                    CROW_LOG_ERROR << logPrefix << "The file part is missing its Content-Disposition header.";
+                    return crow::response{ 400, "The file part is missing its Content-Disposition header." };
                 }
                 for (const auto &[key, value] : header_it->second.params) {
                     CROW_LOG_DEBUG << logPrefix << key << " = " << value;
@@ -602,7 +609,7 @@ int main (int argc, char **argv) {
         }
         if (!application->isMountPoint(filepath)) {
             CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-            return crow::response{ 403, "The requested path is not a mount-point" };
+            return crow::response{ 403, http::messages::pathForbidden.data() };
         }
 
         // Now we need to store files on a drive
@@ -616,14 +623,15 @@ int main (int argc, char **argv) {
             CROW_LOG_DEBUG << logPrefix << "outFile.write() ends";
             outfile.close();
             CROW_LOG_DEBUG << logPrefix << "outFile.close()";
-            return crow::response{ 200, "OK"};
+            return crow::response{ 200, "File uploaded."};
         }
         CROW_LOG_CRITICAL << logPrefix << filename << ": file part not found";
-        return crow::response { 400, std::string(filename) + " file part not found" };
+        return crow::response { 400, "Multipart field 'file' is required." };
     });
 
     CROW_ROUTE(app, "/api/rename").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         constexpr std::string_view logPrefix { "(api/rename): " };
 
 		if (!req.body.empty()) {
@@ -631,12 +639,12 @@ int main (int argc, char **argv) {
 			const std::string_view path = body.value("path", clef::jsonMissingValue);
 			const std::string_view newName = body.value("newName", clef::jsonMissingValue);
 			if (!application->isJsonValid(path, newName)) {
-				CROW_LOG_ERROR << logPrefix << "'path' or/and 'newName' is not valid!";
-				return crow::response { 400, "'path' or/and 'newName' is not valid!" };
+				CROW_LOG_ERROR << logPrefix << "Fields 'path' and 'newName' must be non-empty strings.";
+				return crow::response { 400, http::messages::invalidRequestFields.data() };
 			}
 			if (!application->isMountPoint(path)) {
-				CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-				return crow::response { 403, "The requested filepath is not a mount-point" };
+				CROW_LOG_ERROR << logPrefix << http::messages::pathForbidden;
+				return crow::response { 403, http::messages::pathForbidden.data() };
 			}
 			const fs::path newDirictoryName { "/" / fs::path (path).parent_path() / fs::path(newName) };
 			const fs::path oldDirectoryName { path };
@@ -644,17 +652,18 @@ int main (int argc, char **argv) {
 			fs::rename(oldDirectoryName, newDirictoryName, ec);
 		    if (ec) {
 		        CROW_LOG_ERROR << logPrefix << ec.value() << ": " << ec.message();
-		        return crow::response { 400, ec.message() };
+		        return crow::response { 400, "The file or directory could not be renamed." };
 		    }
 			CROW_LOG_WARNING << logPrefix << oldDirectoryName << " has been renamed to " << newDirictoryName;
 			return crow::response { 200 };
 		}
-		CROW_LOG_ERROR << logPrefix << "request body is empty";
-        return crow::response{ 400, "request body is empty"};
+		CROW_LOG_ERROR << logPrefix << http::messages::bodyRequired;
+        return crow::response{ 400, http::messages::bodyRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/mkdir").methods("POST"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         constexpr std::string_view logPrefix {"(api/mkdir): "};
 
         if (!req.body.empty()) {
@@ -662,40 +671,41 @@ int main (int argc, char **argv) {
             const std::string_view path = body.value("path", clef::jsonMissingValue);
             const std::string_view name = body.value("name", clef::jsonMissingValue);
             if (!application->isJsonValid(path, name)) {
-                CROW_LOG_ERROR << logPrefix << "'path' or/and 'name' is not valid!";
-                return crow::response { 400, "'path' or/and 'name' is not valid!" };
+                CROW_LOG_ERROR << logPrefix << "Fields 'path' and 'name' must be non-empty strings.";
+                return crow::response { 400, http::messages::invalidRequestFields.data() };
             }
             if (!application->isMountPoint(path)) {
-                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-                return crow::response { 403, "The requested path is not a mount-point" };
+                CROW_LOG_ERROR << logPrefix << http::messages::pathForbidden;
+                return crow::response { 403, http::messages::pathForbidden.data() };
             }
             const fs::path directoryName { fs::path(path) / fs::path(name) };
             if (fs::exists(directoryName)) {
-                CROW_LOG_ERROR << logPrefix << "the specified directory already exists";
-                return crow::response { 500, "The specified directory already exist" };
+                CROW_LOG_ERROR << logPrefix << http::messages::destinationExists;
+                return crow::response { 500, http::messages::destinationExists.data() };
             }
             std::error_code ec;
             fs::create_directory(directoryName, ec);
             if (ec) {
                 CROW_LOG_ERROR << ec.value() << ": " << ec.message();
-                return crow::response { 400, ec.message() };
+                return crow::response { 400, "The directory could not be created." };
             }
             CROW_LOG_WARNING << logPrefix << directoryName << " has been created!";
             return crow::response{ 201 };
         }
         CROW_LOG_ERROR << logPrefix << "request body is empty!";
-        return crow::response { 400, "request body is empty" };
+        return crow::response { 400, http::messages::bodyRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/tag").methods("GET"_method)
     ([&](const crow::request &req) {
+        using namespace clef;
         constexpr std::string_view logPrefix { "(api/tag): " };
 
         const char *path = req.url_params.get("path");
         if (path) {
             if (!application->isMountPoint(path)) {
-                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-                return crow::response { 403, "The requested path is not a mount-point" };
+                CROW_LOG_ERROR << logPrefix << http::messages::pathForbidden;
+                return crow::response { 403, http::messages::pathForbidden.data() };
             }
             const std::string_view filePath = path;
             const std::string fileExtension = fs::path(filePath).extension().string();
@@ -706,7 +716,7 @@ int main (int argc, char **argv) {
 
             if (!result.has_value()) {
                 CROW_LOG_ERROR << logPrefix << "error occurred: " << result.error();
-                crow::response res(500, result.error());
+                crow::response res(500, http::messages::internalError.data());
                 return res;
             }
 
@@ -714,8 +724,8 @@ int main (int argc, char **argv) {
             res.set_header("Content-Type", "application/json");
             return res;
         }
-        CROW_LOG_ERROR << logPrefix << "path is missing";
-        return crow::response { 400, "path is missing" };
+        CROW_LOG_ERROR << logPrefix << http::messages::pathRequired;
+        return crow::response { 400, http::messages::pathRequired.data() };
     });
 
     CROW_ROUTE(app, "/api/tag-registry")
@@ -723,7 +733,7 @@ int main (int argc, char **argv) {
         using namespace clef::music::tag;
         const auto map = getTagMap();
         if (!map)
-            return crow::response { 400, "Tagmap has not been found" };
+            return crow::response { 500, "The tag registry is unavailable." };
 
         crow::response res { map->aliases().dump() };
         res.set_header("Content-Type", "application/json");
@@ -754,21 +764,21 @@ int main (int argc, char **argv) {
             auto sortType { SortType::name };
             if (sort) {
                 const auto p = utils::parseSortType(sort);
-                if (!p) return crow::response { 400, "Unknown sort column" };
+                if (!p) return crow::response { 400, "Query parameter 'sort' specifies an unsupported field." };
                 sortType = *p;
             }
 
             bool ascending { true };
             if (asc) {
                 const auto p = utils::parseBool(asc);
-                if (!p) return crow::response { 400, "asc is not a Boolean" };
+                if (!p) return crow::response { 400, "Query parameter 'asc' must be a Boolean." };
                 ascending = *p;
             }
 
             if (path) {
                 if (!application->isMountPoint(path)) {
-                    CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
-                    return crow::response { 403, "The requested path is not a mount-point" };
+                    CROW_LOG_ERROR << logPrefix << http::messages::pathForbidden;
+                    return crow::response { 403, http::messages::pathForbidden.data() };
                 }
                 fs::path fpath;
                 {
@@ -791,19 +801,19 @@ int main (int argc, char **argv) {
                 return res;
             }
             if (!path) {
-                CROW_LOG_ERROR << logPrefix << "path is missing";
-                return crow::response { 400, "path is missing" };
+                CROW_LOG_ERROR << logPrefix << http::messages::pathRequired;
+                return crow::response { 400, http::messages::pathRequired.data() };
             }
-            return crow::response { 500 };
+            return crow::response { 500, http::messages::internalError.data() };
         } catch (std::invalid_argument&) {
-            CROW_LOG_ERROR << logPrefix << "limit or offset is not a number";
-            return crow::response { 400, "limit or offset is not a number" };
+            CROW_LOG_ERROR << logPrefix << "Requested limit or offset is not a number";
+            return crow::response { 400, "Query parameters 'limit' and 'offset' must be integers." };
         } catch (std::out_of_range&) {
-            CROW_LOG_ERROR << logPrefix << "limit or offset is out of range";
-            return crow::response { 400, "limit or offset is out of range" };
+            CROW_LOG_ERROR << logPrefix << "Requested limit or offset is out of range";
+            return crow::response { 400, "Query parameter 'limit' or 'offset' exceeds the supported range." };
         } catch (std::exception &e) {
             CROW_LOG_ERROR << logPrefix << e.what();
-            return crow::response { 500, "Something went wrong. Check logs." };
+            return crow::response { 500, http::messages::internalError.data() };
         }
 
     });
