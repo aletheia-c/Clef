@@ -326,19 +326,30 @@ int main (int argc, char **argv) {
 
     CROW_ROUTE(app, "/api/getalbumcover").methods("GET"_method)
     ([&](const crow::request &req) {
-        crow::response response{500};
-        const std::string filePath = req.url_params.get("path");
-        if (!application->isMountPoint(filePath)) {
-            return crow::response { 500, "LOL NO" };
+        constexpr std::string_view logPrefix { "(api/getalbumcover): " };
+
+        crow::response response{501, "Not implemented" };
+        const char *path = req.url_params.get("path");
+        if (path) {
+            if (!application->isMountPoint(path)) {
+                CROW_LOG_ERROR << logPrefix << "The requested path is not a mount-point";
+                return crow::response { 403, "The requested path is not a mount-point" };
+            }
+            auto handler = Factory::create(clef::utils::getExtension(path));
+            if (!handler) {
+                CROW_LOG_ERROR << logPrefix;
+                return crow::response { 422 };
+            }
+            auto picture = handler->getAlbumCover(path);
+
+            response.body.assign(picture.data.data(), picture.data.size());
+            response.set_header("Content-Type", picture.mimeType);
+            response.code = 200;
+
+            return response;
         }
-        auto handler = Factory::create(clef::utils::getExtension(filePath));
-        auto picture = handler->getAlbumCover(filePath);
-
-        response.body.assign(picture.data.data(), picture.data.size());
-        response.set_header("Content-Type", picture.mimeType);
-        response.code = 200;
-
-        return response;
+        CROW_LOG_ERROR << logPrefix;
+        return crow::response { 400 };
     });
 
     CROW_ROUTE(app, "/api/gethistory").methods("GET"_method)
@@ -389,40 +400,51 @@ int main (int argc, char **argv) {
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/edittag): " };
-        const ordered_json body = json::parse(req.body);
+        if (!req.body.empty()) {
+            const ordered_json body = json::parse(req.body);
 
-        clef::TagChangeRequest tagStruct {
-            .filePath = body.value("path", clef::jsonMissingValue.data()),
-            .fieldType = body.value("tagType", clef::jsonMissingValue.data()),
-            .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue.data()), String::UTF8 },
-            .replaceWith = { body.value("replaceWith", clef::jsonMissingValue.data()), String::UTF8 },
-        };
-        if (!tagStruct.isValid()) {
-            CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
-            return crow::response { 400, "Request is not valid. Please check sending request" };
+            clef::TagChangeRequest tagStruct {
+                .filePath = body.value("path", clef::jsonMissingValue.data()),
+                .fieldType = body.value("tagType", clef::jsonMissingValue.data()),
+                .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue.data()), String::UTF8 },
+                .replaceWith = { body.value("replaceWith", clef::jsonMissingValue.data()), String::UTF8 },
+            };
+            if (!tagStruct.isValid()) {
+                CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
+                return crow::response { 400, "Request is not valid. Please check sending request" };
+            }
+            if (!application->isMountPoint(tagStruct.filePath)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+                return crow::response { 403, "The requested filepath is not a mount-point" };
+            }
+            clef::storage::id id {};
+            const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
+
+            CROW_LOG_WARNING << "(api/edittag) requested path: " << tagStruct.filePath;
+
+            const auto handler = Factory::create(fileExtension);
+            if (!handler) {
+                CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
+                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+            }
+            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            if (!rtag.has_value()) {
+                CROW_LOG_ERROR << rtag.error();
+                return crow::response { 500, rtag.error() };
+            }
+            tagStruct.fieldType = rtag.value();
+            CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
+
+            if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+            crow::response response(handler->editMusicTags(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
+
+            if (response.code == 200) {
+                return application->getTagHistoryDB().insertEdit(tagStruct, id);
+            }
+            return response;
         }
-        clef::storage::id id {};
-        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
-
-        CROW_LOG_WARNING << "(api/edittag) requested path: " << tagStruct.filePath;
-
-        const auto handler = Factory::create(fileExtension);
-        const auto rtag = handler->resolveTag(tagStruct.fieldType);
-        if (!rtag.has_value()) {
-            CROW_LOG_ERROR << rtag.error();
-            return crow::response { 500, rtag.error() };
-        }
-        tagStruct.fieldType = rtag.value();
-        CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
-
-        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
-        crow::response response(handler->editMusicTags(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
-
-        if (response.code == 200) {
-            return application->getTagHistoryDB().insertEdit(tagStruct, id);
-        }
-
-        return response;
+        CROW_LOG_ERROR << logPrefix << "request body is empty!";
+        return crow::response { 400, "request body is empty" };
     });
 
     CROW_ROUTE(app, "/api/addfieldtag").methods("POST"_method)
@@ -430,38 +452,51 @@ int main (int argc, char **argv) {
         using namespace TagLib;
 
         constexpr std::string_view logPrefix { "(api/addfieldtag): " };
-        const ordered_json body = json::parse(req.body);
 
-        clef::TagChangeRequest tagStruct {
-            .filePath = body.value("path", clef::jsonMissingValue.data()),
-            .fieldType = body.value("fieldType", clef::jsonMissingValue.data()),
-            .value = { body.value("value", clef::jsonMissingValue.data()), String::UTF8 }
-        };
-        if (!tagStruct.isValid()) {
-            CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
-            return crow::response { 400, "Request is not valid. Please check sending request" };
+        if (!req.body.empty()) {
+            const ordered_json body = json::parse(req.body);
+
+            clef::TagChangeRequest tagStruct {
+                .filePath = body.value("path", clef::jsonMissingValue.data()),
+                .fieldType = body.value("fieldType", clef::jsonMissingValue.data()),
+                .value = { body.value("value", clef::jsonMissingValue.data()), String::UTF8 }
+            };
+            if (!tagStruct.isValid()) {
+                CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
+                return crow::response { 400, "Request is not valid. Please check sending request" };
+            }
+            if (!application->isMountPoint(tagStruct.filePath)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+				return crow::response { 403, "The requested filepath is not a mount-point" };
+            }
+            clef::storage::id id {};
+            const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
+
+            CROW_LOG_WARNING << logPrefix << "requested path: " << tagStruct.filePath;
+
+            const auto handler = Factory::create(fileExtension);
+            if (!handler) {
+                CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
+                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+            }
+            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            if (!rtag.has_value()) {
+                CROW_LOG_ERROR << rtag.error();
+                return crow::response { 500, rtag.error() };
+            }
+            tagStruct.fieldType = rtag.value();
+            CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
+
+            if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+            crow::response response(handler->addMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
+
+            if (response.code == 200) {
+                return application->getTagHistoryDB().insertAdd(tagStruct, id);
+            }
+            return response;
         }
-        clef::storage::id id {};
-        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
-
-        CROW_LOG_WARNING << logPrefix << "requested path: " << tagStruct.filePath;
-
-        const auto handler = Factory::create(fileExtension);
-        const auto rtag = handler->resolveTag(tagStruct.fieldType);
-        if (!rtag.has_value()) {
-            CROW_LOG_ERROR << rtag.error();
-            return crow::response { 500, rtag.error() };
-        }
-        tagStruct.fieldType = rtag.value();
-        CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
-
-        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
-        crow::response response(handler->addMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
-
-        if (response.code == 200) {
-            return application->getTagHistoryDB().insertAdd(tagStruct, id);
-        }
-        return response;
+        CROW_LOG_ERROR << logPrefix << "request body is empty!";
+        return crow::response { 400, "request body is empty" };
     });
 
     CROW_ROUTE(app, "/api/removefieldtag").methods("POST"_method)
@@ -470,48 +505,64 @@ int main (int argc, char **argv) {
         using namespace clef::music::tag;
 
         constexpr std::string_view logPrefix { "(api/removefieldtag): " };
-        const ordered_json body = json::parse(req.body);
 
-        clef::TagChangeRequest tagStruct {
-            .filePath = body.value("path", "none"),
-            .fieldType = body.value("fieldType", "none"),
-            .value = { body.value("value", "none"), String::UTF8 }
-        };
-        clef::storage::id id {};
-        const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
+        if (!req.body.empty()) {
+            const ordered_json body = json::parse(req.body);
 
-        CROW_LOG_WARNING << "(api/removefieldtag) requested path: " << tagStruct.filePath;
-
-        if (application->getClefIdStatus()) {
-            std::string_view fieldType { tagStruct.fieldType };
-            for (const auto prefix : { prefix::mp3, prefix::m4a }) {
-                if (fieldType.starts_with(prefix)) {
-                    fieldType.remove_prefix(prefix.size());
-                    break;
-                }
+            clef::TagChangeRequest tagStruct {
+                .filePath = body.value("path", "none"),
+                .fieldType = body.value("fieldType", "none"),
+                .value = { body.value("value", "none"), String::UTF8 }
+            };
+            if (!tagStruct.isValid()) {
+                CROW_LOG_ERROR << logPrefix << "tagStruct is invalid. Please check sending requests.";
+                return crow::response { 400, "Request is not valid. Please check sending request" };
             }
-            if (String(std::string(fieldType), String::UTF8).upper()
-                == String(std::string(tag::clefId), String::UTF8).upper())
-                return crow::response { 400, "You cannot modify Clef_ID" };
+            if (!application->isMountPoint(tagStruct.filePath)) {
+                CROW_LOG_ERROR << logPrefix << "requested filepath is not a mount-point";
+				return crow::response { 403, "The requested filepath is not a mount-point" };
+            }
+            clef::storage::id id {};
+            const std::string fileExtension { clef::utils::getExtension(tagStruct.filePath) };
+
+            CROW_LOG_WARNING << "(api/removefieldtag) requested path: " << tagStruct.filePath;
+
+            if (application->getClefIdStatus()) {
+                std::string_view fieldType { tagStruct.fieldType };
+                for (const auto prefix : { prefix::mp3, prefix::m4a }) {
+                    if (fieldType.starts_with(prefix)) {
+                        fieldType.remove_prefix(prefix.size());
+                        break;
+                    }
+                }
+                if (String(std::string(fieldType), String::UTF8).upper()
+                    == String(std::string(tag::clefId), String::UTF8).upper())
+                    return crow::response { 400, "You cannot modify Clef_ID" };
+            }
+
+            const auto handler = Factory::create(fileExtension);
+            if (!handler) {
+                CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
+                return crow::response { 400, "Cannot create a handler for " + tagStruct.filePath };
+            }
+            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            if (!rtag.has_value()) {
+                CROW_LOG_ERROR << logPrefix << rtag.error();
+                return crow::response { 422, rtag.error() };
+            }
+            tagStruct.fieldType = rtag.value();
+            CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
+
+            if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
+            crow::response response(handler->removeMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
+
+            if (response.code == 200) {
+                return application->getTagHistoryDB().insertRemove(tagStruct, id);
+            }
+            return response;
         }
-
-        const auto handler = Factory::create(fileExtension);
-        const auto rtag = handler->resolveTag(tagStruct.fieldType);
-        if (!rtag.has_value()) {
-            CROW_LOG_ERROR << rtag.error();
-            return crow::response { 500, rtag.error() };
-        }
-        tagStruct.fieldType = rtag.value();
-        CROW_LOG_WARNING << logPrefix << "resolved tag: " << tagStruct.fieldType;
-
-        if (application->getClefIdStatus()) id.clefId = clef::utils::generateId();
-        crow::response response(handler->removeMusicTag(tagStruct, application->getClefIdStatus() ? &id.clefId : nullptr));
-
-        if (response.code == 200) {
-            return application->getTagHistoryDB().insertRemove(tagStruct, id);
-        }
-
-        return response;
+        CROW_LOG_ERROR << logPrefix << "request body is empty!";
+        return crow::response { 400, "request body is empty" };
     });
 
     CROW_ROUTE(app, "/api/store").methods("POST"_method)
