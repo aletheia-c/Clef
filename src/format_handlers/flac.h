@@ -14,6 +14,7 @@ namespace clef::music::handler {
     private:
         constexpr static std::string_view m_type { "vorbis" };
         static void ensureClefId(std::string *clefId, TagLib::Ogg::XiphComment *tag);
+        static std::string toUpperCase(std::string_view s);
     public:
         std::expected<json, std::string> listMusicTags(const std::string &filePath) override;
         crow::response removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId = nullptr) override;

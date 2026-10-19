@@ -30,6 +30,14 @@ void Flac::ensureClefId(std::string *clefId, TagLib::Ogg::XiphComment *tag) {
     }
 }
 
+std::string Flac::toUpperCase(const std::string_view s) {
+    std::string temp ( s.length(), '\0' );
+    std::ranges::transform(s, temp.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return temp;
+}
+
 std::expected<json, std::string> Flac::listMusicTags(const std::string &filePath) {
     TagLib::FLAC::File file { filePath.c_str() };
 
@@ -75,16 +83,23 @@ crow::response Flac::removeMusicTag(const TagChangeRequest &tagStruct, std::stri
     }
 
     auto *tag = file.xiphComment();
-    const auto f_it = tag->fieldListMap().find(tagStruct.fieldType);
+    auto f_it = tag->fieldListMap().find(tagStruct.fieldType);
+    const auto f_itEnd = tag->fieldListMap().end();
 
     // Save values of key (denormFieldType) to values
     TagLib::StringList values {};
-    if (f_it != tag->fieldListMap().end()) {
+    if (f_it != f_itEnd) {
         values = f_it->second;
     } else {
-        CROW_LOG_ERROR << __PRETTY_FUNCTION__ << ": " << tagStruct.fieldType << " was not found in file "
-            << tagStruct.filePath;
-        return { 500, "Error" };
+        // Try to find upper case tag in case if a client sends lower case tag
+        f_it = tag->fieldListMap().find(toUpperCase(tagStruct.fieldType));
+        if (f_it != f_itEnd) {
+            values = f_it->second;
+        } else {
+            CROW_LOG_ERROR << __PRETTY_FUNCTION__ << ": " << tagStruct.fieldType
+            << " was not found in " << tagStruct.filePath;
+            return crow::response { 404, tagStruct.fieldType + " was not found in " + tagStruct.filePath };
+        }
     }
 
     // Find occurrence of tagStruct.value. If so, delete it.
