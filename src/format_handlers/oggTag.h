@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-#include "../../include/interface.h"
+#include "interface.h"
 
 namespace clef::music::handler {
     class OggTag : public Interface {

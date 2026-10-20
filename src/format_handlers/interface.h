@@ -8,8 +8,8 @@
 #include <crow/http_response.h>
 #include <nlohmann/json.hpp>
 
-#include "picture.h"
-#include "tagChangeRequest.h"
+#include "../../include/picture.h"
+#include "../../include/tagChangeRequest.h"
 
 using json = nlohmann::json;
 

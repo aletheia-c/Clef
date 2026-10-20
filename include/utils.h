@@ -16,7 +16,7 @@ namespace clef::utils {
     std::optional<DirectoryListOptions::SortType> parseSortType(std::string_view a);
     std::string generateId(std::size_t t=16);
     std::string getExtension(const std::string &path);
-
+    std::string toUpperCase(std::string_view s);
 }
 
 #endif // CLEF_UTILS_H
