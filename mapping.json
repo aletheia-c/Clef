@@ -25,7 +25,8 @@
     "vorbis": "ALBUM",
     "apev2": "ALBUM",
     "mp4": "©alb",
-    "asf": "WM/AlbumTitle"
+    "asf": "WM/AlbumTitle",
+    "riff": "IPRD"
   },
   "Album Artist": {
     "id3v2": "TPE2",
@@ -61,7 +62,8 @@
     "vorbis": "ARTIST",
     "apev2": "ARTIST",
     "mp4": "©ART",
-    "asf": "Author"
+    "asf": "Author",
+    "riff": "IART"
   },
   "Artist Sort Order": {
     "id3v2": "TSOP",
@@ -103,7 +105,8 @@
     "vorbis": "COMMENT",
     "apev2": "COMMENT",
     "mp4": "©cmt",
-    "asf": "Description"
+    "asf": "Description",
+    "riff": "ICMT"
   },
   "Compilation": {
     "id3v2": "TCMP",
@@ -117,7 +120,8 @@
     "vorbis": "COMPOSER",
     "apev2": "COMPOSER",
     "mp4": "©wrt",
-    "asf": "WM/Composer"
+    "asf": "WM/Composer",
+    "riff": "IMUS"
   },
   "Composer Sort Order": {
     "id3v2": "TSOC",
@@ -138,7 +142,8 @@
     "vorbis": "COPYRIGHT",
     "apev2": "COPYRIGHT",
     "mp4": "cprt",
-    "asf": "Copyright"
+    "asf": "Copyright",
+    "riff": "ICOP"
   },
   "Director": {
     "id3v2": "TXXX:DIRECTOR",
@@ -166,7 +171,8 @@
     "vorbis": "ENCODEDBY",
     "apev2": "ENCODEDBY",
     "mp4": "©enc",
-    "asf": "WM/EncodedBy"
+    "asf": "WM/EncodedBy",
+    "riff": "IENC"
   },
   "Encoder Settings": {
     "id3v2": "TSSE",
@@ -183,14 +189,16 @@
     "vorbis": "ENGINEER",
     "apev2": "ENGINEER",
     "mp4": "----:com.apple.iTunes:ENGINEER",
-    "asf": "WM/Engineer"
+    "asf": "WM/Engineer",
+    "riff": "IENG"
   },
   "Genre": {
     "id3v2": "TCON",
     "vorbis": "GENRE",
     "apev2": "GENRE",
     "mp4": "©gen",
-    "asf": "WM/Genre"
+    "asf": "WM/Genre",
+    "riff": "IGNR"
   },
   "Grouping": {
     "id3v2": "GRP1",
@@ -218,7 +226,8 @@
     "vorbis": "LANGUAGE",
     "apev2": "LANGUAGE",
     "mp4": "----:com.apple.iTunes:LANGUAGE",
-    "asf": "WM/Language"
+    "asf": "WM/Language",
+    "riff": "ILNG"
   },
   "License": {
     "id3v2": [
@@ -248,7 +257,8 @@
     "vorbis": "MEDIA",
     "apev2": "MEDIA",
     "mp4": "----:com.apple.iTunes:MEDIA",
-    "asf": "WM/Media"
+    "asf": "WM/Media",
+    "riff": "IMED"
   },
   "Mix-DJ": {
     "id3v2": [
@@ -426,7 +436,8 @@
     "vorbis": "PRODUCER",
     "apev2": "PRODUCER",
     "mp4": "----:com.apple.iTunes:PRODUCER",
-    "asf": "WM/Producer"
+    "asf": "WM/Producer",
+    "riff": "IPRO"
   },
   "Record Label": {
     "id3v2": "TPUB",
@@ -440,14 +451,16 @@
     "vorbis": "RELEASECOUNTRY",
     "apev2": "RELEASECOUNTRY",
     "mp4": "----:com.apple.iTunes:MusicBrainz Album Release Country",
-    "asf": "MusicBrainz/Album Release Country"
+    "asf": "MusicBrainz/Album Release Country",
+    "riff": "ICNT"
   },
   "Recording Date": {
     "id3v2": "TDRC",
     "vorbis": "DATE",
     "apev2": "YEAR",
     "mp4": "©day",
-    "asf": "WM/Year"
+    "asf": "WM/Year",
+    "riff": "ICRD"
   },
   "Release Status": {
     "id3v2": "TXXX:MusicBrainz Album Status",
@@ -546,14 +559,16 @@
     "vorbis": "TRACKNUMBER",
     "apev2": "TRACK",
     "mp4": "trkn",
-    "asf": "WM/TrackNumber"
+    "asf": "WM/TrackNumber",
+    "riff": "ITRK"
   },
   "Title": {
     "id3v2": "TIT2",
     "vorbis": "TITLE",
     "apev2": "TITLE",
     "mp4": "©nam",
-    "asf": "Title"
+    "asf": "Title",
+    "riff": "INAM"
   },
   "Title Sort": {
     "id3v2": "TSOT",
@@ -578,7 +593,8 @@
   "Writer": {
     "id3v2": "TXXX:Writer",
     "vorbis": "WRITER",
-    "apev2": "Writer"
+    "apev2": "Writer",
+    "riff": "IWRI"
   },
   "Encoding Time": {
     "id3v2": "TDEN",
