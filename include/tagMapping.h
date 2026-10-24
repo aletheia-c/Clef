@@ -125,7 +125,7 @@ namespace clef::music::tag {
             if (cname == "mp4")
                 return prefix::m4a.data() + fname;
 
-            return std::unexpected(fname + " has no " + cname + " mapping");
+            return fname;
         }
     };
 

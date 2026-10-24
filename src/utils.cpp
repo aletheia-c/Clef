@@ -102,4 +102,12 @@ namespace clef::utils {
     std::string getExtension(const std::string &path) {
         return std::filesystem::path{path}.extension().string();
     }
+
+    std::string toUpperCase(const std::string_view s) {
+        std::string temp ( s.length(), '\0' );
+        std::ranges::transform(s, temp.begin(), [](unsigned char c) {
+            return static_cast<char>(std::toupper(c));
+        });
+        return temp;
+    }
 }

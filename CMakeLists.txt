@@ -34,6 +34,9 @@ set(CLEF_SOURCES
         src/clef.cpp
         src/database/users.cpp
         src/authentication/sessionStore.cpp
+        src/tags/id3v2.cpp
+        src/tags/xiph.cpp
+        src/tags/mp4.cpp
 )
 
 set(CLEF_HEADERS
@@ -41,7 +44,7 @@ set(CLEF_HEADERS
     include/clef.h
     include/clefConstants.h
     include/directoryListing.h
-    include/interface.h
+        src/format_handlers/interface.h
     include/music.h
     include/picture.h
     include/tagChangeRequest.h
@@ -61,6 +64,9 @@ set(CLEF_HEADERS
     src/format_handlers/oggTag.h
     src/format_handlers/oggVorbis.h
         include/authentication/sessionStore.h
+        src/tags/id3v2.h
+        src/tags/xiph.h
+        src/tags/mp4.h
 )
 
 add_executable(Clef ${CLEF_SOURCES} ${CLEF_HEADERS})
