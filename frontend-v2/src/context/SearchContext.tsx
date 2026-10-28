@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 
 interface SearchContextValue {
   query: string;
@@ -16,8 +17,13 @@ export function useSearch(): SearchContextValue {
 }
 
 export function SearchProvider({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    setQuery("");
+  }, [pathname]);
 
   const focusSearch = React.useCallback(() => {
     inputRef.current?.focus();
