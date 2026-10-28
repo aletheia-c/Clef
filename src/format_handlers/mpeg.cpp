@@ -68,7 +68,7 @@ crow::response Mpeg::addMusicTag(const TagChangeRequest &tagStruct, std::string 
         return crow::response {500, "File does not have an ID3v2Tag"};
     }
 
-    auto resolve = resolveTag(tagStruct.fieldType);
+    auto resolve = resolveTag(tagStruct.fieldType, tagStruct.formatType);
     if (!resolve.has_value()) {
         CROW_LOG_ERROR << resolve.error();
         return crow::response { 400, resolve.error() };
@@ -102,6 +102,6 @@ crow::response Mpeg::editMusicTags(const TagChangeRequest &tagStruct, std::strin
     return crow::response {200, "OK" };
 }
 
-std::expected<std::string, std::string> Mpeg::resolveTag(const std::string_view tag) {
+std::expected<std::string, std::string> Mpeg::resolveTag(const std::string_view tag, std::string_view) {
     return id3v2::resolveTag(tag);
 }

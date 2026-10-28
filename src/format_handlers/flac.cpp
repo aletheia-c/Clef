@@ -62,7 +62,7 @@ crow::response Flac::addMusicTag(const TagChangeRequest &tagStruct, std::string 
         return {500, "The file does not have Xiph Comments"};
     }
 
-    auto resolve = resolveTag(tagStruct.fieldType);
+    auto resolve = resolveTag(tagStruct.fieldType, tagStruct.formatType);
     if (!resolve.has_value()) {
         CROW_LOG_ERROR << resolve.error();
         return crow::response { 400, resolve.error() };
@@ -124,6 +124,6 @@ Picture Flac::getAlbumCover(const std::string &filePath) {
     return picture;
 }
 
-std::expected<std::string, std::string> Flac::resolveTag(const std::string_view tag) {
+std::expected<std::string, std::string> Flac::resolveTag(const std::string_view tag, std::string_view) {
     return xiph::resolveTag(tag);
 }

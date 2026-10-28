@@ -133,8 +133,12 @@ crow::response Wav::editMusicTags(const TagChangeRequest &tagStruct, std::string
     return crow::response { 200 };
 }
 
-std::expected<std::string, std::string> Wav::resolveTag(const std::string_view tag) {
-    return getTagMap()->resolve(tag.data());
+std::expected<std::string, std::string> Wav::resolveTag(const std::string_view tag, const std::string_view formatType) {
+    if (formatType != "id3v2" && formatType != "riff") {
+        return std::unexpected("Unsupported WAV tag format");
+    }
+
+    return getTagMap()->resolve(std::string(tag), std::string(formatType));
 }
 
 
