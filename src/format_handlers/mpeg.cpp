@@ -20,13 +20,14 @@ std::expected<json, std::string> Mpeg::listMusicTags(const std::string &filePath
         return std::unexpected("The file is not valid");
     }
 
-    if (!file.hasID3v2Tag()) {
-        CROW_LOG_ERROR << "(" << __func__ << ") " << filePath << " does not have ID3v2Tag";
-        return std::unexpected("The file does not have ID3v2Tag");
+    if (file.hasID3v2Tag()) {
+        json j = json::object();
+        const auto *tag = file.ID3v2Tag();
+        j["id3v2"] = id3v2::listMusicTags(tag);
+        return j;
     }
-
-    const auto *tag = file.ID3v2Tag();
-    return id3v2::listMusicTags(tag);
+    CROW_LOG_ERROR << "(" << __func__ << ") " << filePath << " does not have ID3v2Tag";
+    return std::unexpected("The file does not have ID3v2Tag");
 }
 
 crow::response Mpeg::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {

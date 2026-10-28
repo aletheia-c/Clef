@@ -16,7 +16,9 @@ std::expected<json, std::string> OggOpus::listMusicTags(const std::string &fileP
         return std::unexpected(filePath + " is not valid");
     }
 
-    return clef::music::xiph::listMusicTags(file.tag());
+    json j = json::object();
+    j["xiph"] = xiph::listMusicTags(file.tag());
+    return j;
 }
 
 crow::response OggOpus::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {

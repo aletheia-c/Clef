@@ -16,7 +16,9 @@ std::expected<json, std::string> OggVorbis::listMusicTags(const std::string &fil
         return std::unexpected(filePath + " is not valid");
     }
 
-    return xiph::listMusicTags(file.tag());
+    json j = json::object();
+    j["xiph"] = xiph::listMusicTags(file.tag());
+    return j;
 }
 
 crow::response OggVorbis::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {

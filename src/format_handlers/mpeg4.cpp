@@ -16,12 +16,13 @@ std::expected<json, std::string> Mpeg4::listMusicTags(const std::string &filePat
         return std::unexpected(filePath + " is not valid");
     }
 
-    if (!file.hasMP4Tag()) {
-        CROW_LOG_ERROR << "(" << __func__ << ") " << filePath << " does not have mp4 tags";
-        return std::unexpected(filePath + " does not have mp4 tags");
+    if (file.hasMP4Tag()) {
+        json j = json::object();
+        j["mp4"] = mp4::listMusicTags(file.tag());
+        return j;
     }
-
-    return mp4::listMusicTags(file.tag());
+    CROW_LOG_ERROR << "(" << __func__ << ") " << filePath << " does not have mp4 tags";
+    return std::unexpected(filePath + " does not have mp4 tags");
 }
 
 crow::response Mpeg4::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
