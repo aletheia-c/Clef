@@ -37,8 +37,35 @@ The dev server proxies `/api/*` to the backend. It defaults to
 VITE_API_TARGET=http://localhost:8080 npm run dev   # e.g. the dockerized stack
 ```
 
-If the backend isn't running yet, the UI shows "Waiting for the backend…" and
-retries automatically.
+If the backend isn't running yet, the sign-in screen shows a connection error
+with a retry button.
+
+## Authentication
+
+The UI uses the backend's in-memory, cookie-based sessions:
+
+- On load, `GET /api/settings` checks the session before mounting the editor.
+  It must return **401** for a missing, expired, or unknown session and its normal
+  JSON settings for an authenticated request.
+- The sign-in form sends `POST /api/auth/login` with JSON
+  `{ "username": "…", "password": "…" }`. Return **401** for invalid credentials.
+  On success return **200** or **204** and a `Set-Cookie` header. An empty or
+  plain-text login body is supported; no token is read from the body.
+- After login, the UI checks `/api/settings` again to confirm that the cookie
+  works. A successful login response alone does not open the editor.
+- All API fetches include credentials. An API **401**, including from uploads
+  or the heartbeat, unmounts the editor and shows sign-in again. Other failures
+  do not get treated as an expired session. The current directory URL is kept.
+- Tokens and passwords are not stored in localStorage or sessionStorage.
+  The password field is cleared after successful sign-in.
+
+Example cookie: `clef_session=<token>; HttpOnly; SameSite=Lax; Path=/; Secure`.
+Use HTTPS with `Secure`; for plain HTTP development omit that flag. With the
+existing Vite/nginx proxy, the browser sees same-origin API requests. Keep login
+public and protect `/api/settings` and the library API with the middleware.
+While the draft middleware allows anonymous settings requests, the frontend
+will interpret their successful response as an active session and skip login.
+After a backend restart, reject the stale cookie with **401**.
 
 ## Build for production
 

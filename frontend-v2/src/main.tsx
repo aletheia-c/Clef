@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { DialogsProvider } from "@/hooks/useDialogs";
 import { AppProvider } from "@/context/AppContext";
 import { PrefsProvider } from "@/context/PrefsContext";
+import { AuthGate } from "@/components/auth/AuthGate";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -17,9 +18,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <ToastProvider>
           <TooltipProvider delayDuration={300}>
             <DialogsProvider>
-              <AppProvider>
-                <App />
-              </AppProvider>
+              <AuthGate>
+                <AppProvider>
+                  <App />
+                </AppProvider>
+              </AuthGate>
             </DialogsProvider>
           </TooltipProvider>
         </ToastProvider>

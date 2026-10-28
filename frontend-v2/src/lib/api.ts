@@ -15,6 +15,17 @@ import type { SortColumn } from "./sort";
 // In dev, Vite proxies /api to the backend (see vite.config.ts).
 const API_BASE = "/api";
 
+const unauthorizedListeners = new Set<() => void>();
+
+export function onUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener);
+  return () => { unauthorizedListeners.delete(listener); };
+}
+
+function notifyUnauthorized(status: number) {
+  if (status === 401) unauthorizedListeners.forEach((listener) => listener());
+}
+
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -24,18 +35,22 @@ class ApiError extends Error {
   }
 }
 
-async function jsonGet<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(url, { signal });
+async function jsonGet<T>(url: string, signal?: AbortSignal, notify = true): Promise<T> {
+  const res = await fetch(url, { signal, credentials: "include", cache: "no-store" });
+  if (notify) notifyUnauthorized(res.status);
   if (!res.ok) throw new ApiError(await errorText(res), res.status);
   return res.json() as Promise<T>;
 }
 
-async function jsonPost(url: string, body: unknown): Promise<Response> {
+async function jsonPost(url: string, body: unknown, notify = true, signal?: AbortSignal): Promise<Response> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: "include",
+    signal,
   });
+  if (notify) notifyUnauthorized(res.status);
   if (!res.ok) throw new ApiError(await errorText(res), res.status);
   return res;
 }
@@ -79,6 +94,14 @@ function toDirectoryTree(res: ListV2Response): DirectoryTree {
 }
 
 export const api = {
+  // Login may return an empty or plain-text body. Only its status matters;
+  // the browser handles Set-Cookie, and checkSession verifies the next request.
+  login: (username: string, password: string, signal?: AbortSignal) =>
+    jsonPost(`${API_BASE}/auth/login`, { username, password }, false, signal),
+
+  checkSession: (signal?: AbortSignal) =>
+    jsonGet<AppSettings>(`${API_BASE}/settings`, signal, false),
+
   getSettings: (signal?: AbortSignal) =>
     jsonGet<AppSettings>(`${API_BASE}/settings`, signal),
 
@@ -86,7 +109,8 @@ export const api = {
     jsonGet<{ path: string }>(`${API_BASE}/getmntpoint`, signal),
 
   heartbeat: async (signal?: AbortSignal): Promise<boolean> => {
-    const res = await fetch(`${API_BASE}/heartbeat`, { signal });
+    const res = await fetch(`${API_BASE}/heartbeat`, { signal, credentials: "include", cache: "no-store" });
+    notifyUnauthorized(res.status);
     return res.ok;
   },
 
@@ -165,14 +189,17 @@ export const api = {
       form.append("file", file, file.name);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_BASE}/store`);
+      xhr.withCredentials = true;
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && onProgress)
           onProgress(Math.round((e.loaded / e.total) * 100));
       };
-      xhr.onload = () =>
-        xhr.status >= 200 && xhr.status < 300
+      xhr.onload = () => {
+        notifyUnauthorized(xhr.status);
+        return xhr.status >= 200 && xhr.status < 300
           ? resolve()
           : reject(new ApiError(xhr.responseText || `HTTP ${xhr.status}`, xhr.status));
+      };
       xhr.onerror = () => reject(new ApiError("Network error", 0));
       xhr.send(form);
     }),
