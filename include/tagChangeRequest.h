@@ -10,6 +10,7 @@ namespace clef {
     struct TagChangeRequest {
         std::string filePath       { "none" };
         std::string fieldType      { "none" };
+        std::string formatType     { "none" };
         TagLib::String replaceWhat { "none", TagLib::String::UTF8 };
         TagLib::String replaceWith { "none", TagLib::String::UTF8 };
         TagLib::String value       { "none", TagLib::String::UTF8 };
