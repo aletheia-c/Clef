@@ -4,9 +4,10 @@ import type {
   HistoryEntry,
   ListV2Response,
   NodeType,
-  TagMap,
+  TagGroups,
 } from "./types";
 import { basename } from "./utils";
+import { normalizeTagGroups } from "./tagGroups";
 import type { TagAliasMap } from "./tagRegistry";
 import type { SortColumn } from "./sort";
 
@@ -118,7 +119,8 @@ export const api = {
   },
 
   getTags: (path: string, signal?: AbortSignal) =>
-    jsonGet<TagMap>(`${API_BASE}/tag?path=${encodeURIComponent(path)}`, signal),
+    jsonGet<unknown>(`${API_BASE}/tag?path=${encodeURIComponent(path)}`, signal)
+      .then((data): TagGroups => normalizeTagGroups(data, path)),
 
   /**
    * The normalization table: display name → raw tag spellings. Older builds
@@ -138,12 +140,13 @@ export const api = {
     tagType: string;
     replaceWhat: string;
     replaceWith: string;
+    format?: string;
   }) => jsonPost(`${API_BASE}/edittag`, payload),
 
-  addField: (payload: { path: string; fieldType: string; value: string }) =>
+  addField: (payload: { path: string; fieldType: string; value: string; format?: string }) =>
     jsonPost(`${API_BASE}/addfieldtag`, payload),
 
-  removeField: (payload: { path: string; fieldType: string; value: string }) =>
+  removeField: (payload: { path: string; fieldType: string; value: string; format?: string }) =>
     jsonPost(`${API_BASE}/removefieldtag`, payload),
 
   mkdir: (payload: { path: string; name: string }) =>

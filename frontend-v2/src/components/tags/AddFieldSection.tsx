@@ -36,7 +36,7 @@ export function AddFieldSection({
 
   return (
     <div
-      id="add-field-section"
+      data-add-field-section
       className="mt-4 rounded-lg border border-border bg-muted/30 p-3"
     >
       <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

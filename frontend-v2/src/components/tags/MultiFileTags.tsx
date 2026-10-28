@@ -17,6 +17,8 @@ import { useHistoryPanel } from "@/context/HistoryContext";
 import { mergeTags, distinctValues, firstScalar, isHiddenTag } from "@/lib/tags";
 import { tagTooltip, type TagIndex } from "@/lib/tagRegistry";
 import { cn } from "@/lib/utils";
+import { TagFormatList } from "./TagFormatList";
+import type { TagGroups, TagMap } from "@/lib/types";
 
 interface MultiRow {
   id: string;
@@ -96,11 +98,7 @@ function buildRows(
 
 export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
   const { maps, reload } = useMultiTags(filePaths);
-  const { writeLimit, showRawTags } = usePrefs();
-  const { tagIndex } = useApp();
   const showThrobber = useDelayedFlag(!maps);
-  const { toast } = useToast();
-  const { confirm } = useDialogs();
   const { tagsRefreshToken } = useHistoryPanel();
 
   const skipFirstRefresh = React.useRef(true);
@@ -112,13 +110,50 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
     reload();
   }, [tagsRefreshToken, reload]);
 
-  const rows = React.useMemo(
-    () => (maps ? buildRows(mergeTags(maps, tagIndex), tagIndex, showRawTags) : []),
-    [maps, tagIndex, showRawTags],
+  if (!maps) {
+    return showThrobber ? (
+      <div className="flex flex-col items-center justify-center gap-2 p-8 text-muted-foreground">
+        <Loader2 className="size-6 animate-spin" />
+        <span className="text-sm">Loading tags for {filePaths.length} files…</span>
+      </div>
+    ) : null;
+  }
+  const formats = [...new Set(maps.flatMap((groups) => Object.keys(groups)))];
+  return (
+    <div className="flex flex-col">
+      <CoverSection />
+      <div className="flex flex-col gap-4 p-4">
+        <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Layers className="size-4" />
+          Editing {filePaths.length} files. Fields that differ show <span className="font-mono">&lt;keep&gt;</span>.
+        </div>
+        {formats.length === 0 && <p className="text-sm text-muted-foreground">No tags found</p>}
+        {formats.map((format) => (
+          <MultiTagFormat key={format} format={format} groups={maps} filePaths={filePaths} reload={reload} />
+        ))}
+      </div>
+    </div>
   );
+}
+
+function MultiTagFormat({ format, groups, filePaths, reload }: {
+  format: string;
+  groups: TagGroups[];
+  filePaths: string[];
+  reload: () => void;
+}) {
+  const { writeLimit, showRawTags } = usePrefs();
+  const { tagIndex } = useApp();
+  const { toast } = useToast();
+  const { confirm } = useDialogs();
+  // Only files carrying this block participate; absent formats are never written.
+  const participants = groups.flatMap((group, i) => format in group ? [i] : []);
+  const paths = participants.map((i) => filePaths[i]);
+  const maps: TagMap[] = participants.map((i) => groups[i][format]);
+  const rows = buildRows(mergeTags(maps, tagIndex), tagIndex, showRawTags);
 
   /**
-   * Run `op` over the selection. `targets` are indices into `filePaths`, so a
+   * Run `op` over this format's selection. `targets` are indices into `paths`, so a
    * field-scoped write skips the files that don't carry the field instead of
    * sending them another file's raw tag name.
    */
@@ -128,7 +163,7 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
     op: (path: string, i: number) => Promise<unknown>,
   ) {
     const failed = await forEachLimit(targets, writeLimit, (i) =>
-      op(filePaths[i], i),
+      op(paths[i], i),
     );
     const total = targets.length;
     if (total === 0) toast("No selected file has that field", "error");
@@ -145,10 +180,11 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
     runAll("Saved", targetsOf(row), (path, i) =>
       api.editTag({
         path,
-        // Each file's own raw tag name — TPE1 for the mp3, ARTIST for the flac.
+        // Each file's own spelling within this metadata format.
         tagType: row.perFileKey[i] as string,
         replaceWhat: row.perFileOld[i] ?? "",
         replaceWith: newValue,
+        format,
       }),
     );
 
@@ -156,7 +192,7 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
     const targets = targetsOf(row);
     const ok = await confirm({
       title: `Remove “${row.label}”?`,
-      description: `This deletes the field from ${targets.length} of the ${filePaths.length} selected files.`,
+      description: `This deletes the field from ${targets.length} of the ${paths.length} selected files.`,
       destructive: true,
       confirmLabel: "Remove",
     });
@@ -166,6 +202,7 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
         path,
         fieldType: row.perFileKey[i] as string,
         value: row.perFileOld[i] ?? "",
+        format,
       }),
     );
   };
@@ -173,19 +210,9 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
   const addAll = (fieldType: string, value: string) =>
     runAll(
       "Added field to",
-      filePaths.map((_, i) => i),
-      (path) => api.addField({ path, fieldType, value: value || "none" }),
+      paths.map((_, i) => i),
+      (path) => api.addField({ path, fieldType, value: value || "none", format }),
     );
-
-  if (!maps) {
-    return showThrobber ? (
-      <div className="flex flex-col items-center justify-center gap-2 p-8 text-muted-foreground">
-        <Loader2 className="size-6 animate-spin" />
-        <span className="text-sm">Loading tags for {filePaths.length} files…</span>
-      </div>
-    ) : null;
-  }
-
   return (
     <TagPanelContextMenu
       onRemoveField={({ key }) => {
@@ -193,16 +220,7 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
         if (row) void removeAll(row);
       }}
     >
-      <div className="flex flex-col">
-        <CoverSection />
-
-        <div className="flex flex-col gap-4 p-4">
-          <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Layers className="size-4" />
-            Editing {filePaths.length} files. Fields that differ show{" "}
-            <span className="font-mono">&lt;keep&gt;</span>.
-          </div>
-
+      <TagFormatList format={format} count={rows.length}>
           <div className="flex flex-col gap-4">
             {rows.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground">
@@ -222,8 +240,7 @@ export function MultiFileTags({ filePaths }: { filePaths: string[] }) {
           </div>
 
           <AddFieldSection variant="multi" onAdd={(_scope, ft, v) => addAll(ft, v)} />
-        </div>
-      </div>
+      </TagFormatList>
     </TagPanelContextMenu>
   );
 }

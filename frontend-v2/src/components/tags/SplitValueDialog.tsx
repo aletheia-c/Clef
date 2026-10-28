@@ -40,6 +40,7 @@ export function SplitValueDialog({
   sourceLabel,
   value,
   reload,
+  format,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +51,7 @@ export function SplitValueDialog({
   sourceLabel: string;
   value: string;
   reload: () => void;
+  format?: string;
 }) {
   const { getFolderMusicPaths } = useExplorer();
   const { writeLimit } = usePrefs();
@@ -87,10 +89,10 @@ export function SplitValueDialog({
     try {
       if (scope === "file") {
         for (const part of parts) {
-          await api.addField({ path: filePath, fieldType: field, value: part });
+          await api.addField({ path: filePath, fieldType: field, value: part, format });
         }
         if (!keepOriginal) {
-          await api.removeField({ path: filePath, fieldType: sourceKey, value });
+          await api.removeField({ path: filePath, fieldType: sourceKey, value, format });
         }
         toast(`Split into ${parts.length} values`, "success");
       } else {
@@ -102,7 +104,9 @@ export function SplitValueDialog({
           folderPaths,
           writeLimit,
           async (path) => {
-            const tags = await api.getTags(path);
+            const groups = await api.getTags(path);
+            if (format && !(format in groups)) return;
+            const tags = format ? groups[format] : Object.values(groups)[0] ?? {};
             // Each file spells the source field its own way (TCON / GENRE /
             // ©gen); ask the file rather than reusing the mp3's frame ID.
             const rawKey = rawKeyIn(tagIndex, tags, sourceKey);
@@ -113,11 +117,11 @@ export function SplitValueDialog({
             ];
             if (fileParts.length < 2) return;
             for (const part of fileParts) {
-              await api.addField({ path, fieldType: field, value: part });
+              await api.addField({ path, fieldType: field, value: part, format });
             }
             if (!keepOriginal) {
               for (const s of sources) {
-                await api.removeField({ path, fieldType: rawKey, value: s });
+                await api.removeField({ path, fieldType: rawKey, value: s, format });
               }
             }
             touched += 1;

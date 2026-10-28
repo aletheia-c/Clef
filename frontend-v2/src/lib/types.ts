@@ -55,6 +55,8 @@ export interface AppSettings {
 /** A tag value is either a single value or a multi-valued list (ARTISTS, etc.). */
 export type TagValue = string | string[];
 export type TagMap = Record<string, TagValue>;
+/** Tags grouped by the backend metadata format, preserving its exact keys. */
+export type TagGroups = Record<string, TagMap>;
 
 export type HistoryAction = "add" | "remove" | "change";
 

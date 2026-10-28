@@ -258,6 +258,7 @@ function ValueRow({
           open={splitOpen}
           onOpenChange={setSplitOpen}
           filePath={filePath}
+          format={mut.format}
           sourceKey={tagKey}
           sourceLabel={label}
           value={original}

@@ -1,9 +1,9 @@
 import * as React from "react";
 import { api } from "@/lib/api";
-import type { TagMap } from "@/lib/types";
+import type { TagGroups } from "@/lib/types";
 
 export function useTags(path: string | null) {
-  const [tags, setTags] = React.useState<TagMap | null>(null);
+  const [tags, setTags] = React.useState<TagGroups | null>(null);
   // Start "loading" when a path is given so the first render never flashes the
   // empty editor before the fetch effect runs.
   const [loading, setLoading] = React.useState(path !== null);
@@ -41,7 +41,7 @@ export function useTags(path: string | null) {
 }
 
 export function useMultiTags(paths: string[]) {
-  const [maps, setMaps] = React.useState<TagMap[] | null>(null);
+  const [maps, setMaps] = React.useState<TagGroups[] | null>(null);
   const [loading, setLoading] = React.useState(paths.length > 0);
   const [reloadToken, setReloadToken] = React.useState(0);
   const token = React.useRef(0);
@@ -55,7 +55,7 @@ export function useMultiTags(paths: string[]) {
     const current = ++token.current;
     setLoading(true);
     Promise.all(
-      paths.map((p) => api.getTags(p).catch(() => ({}) as TagMap)),
+      paths.map((p) => api.getTags(p).catch(() => ({}) as TagGroups)),
     ).then((all) => {
       if (current !== token.current) return;
       setMaps(all);

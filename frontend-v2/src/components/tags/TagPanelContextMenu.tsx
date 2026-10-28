@@ -9,9 +9,11 @@ import {
   ContextMenuLabel,
 } from "@/components/ui/context-menu";
 
-export function focusAddField() {
-  const section = document.getElementById("add-field-section");
+function focusAddField(root: HTMLDivElement | null) {
+  const section = root?.querySelector<HTMLElement>("[data-add-field-section]");
   if (!section) return;
+  const details = section.closest("details");
+  if (details) details.open = true;
   section.scrollIntoView({ behavior: "smooth", block: "nearest" });
   section.querySelector("input")?.focus();
 }
@@ -37,6 +39,7 @@ export function TagPanelContextMenu({
   children: React.ReactNode;
 }) {
   const [target, setTarget] = React.useState<FieldTarget | null>(null);
+  const root = React.useRef<HTMLDivElement>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     const el = (e.target as HTMLElement).closest("[data-tag-key]");
@@ -55,7 +58,7 @@ export function TagPanelContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div onContextMenu={handleContextMenu} className="min-h-full">
+        <div ref={root} onContextMenu={handleContextMenu}>
           {children}
         </div>
       </ContextMenuTrigger>
@@ -68,7 +71,7 @@ export function TagPanelContextMenu({
             <ContextMenuSeparator />
           </>
         )}
-        <ContextMenuItem onSelect={focusAddField}>
+        <ContextMenuItem onSelect={() => focusAddField(root.current)}>
           <Plus />
           Add new tag field
         </ContextMenuItem>

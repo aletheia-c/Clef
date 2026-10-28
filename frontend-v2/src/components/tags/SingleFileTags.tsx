@@ -11,10 +11,12 @@ import { useApp } from "@/context/AppContext";
 import { usePrefs } from "@/context/PrefsContext";
 import { useHistoryPanel } from "@/context/HistoryContext";
 import { useDialogs } from "@/hooks/useDialogs";
-import { coerce, readClefId, isHiddenTag } from "@/lib/tags";
+import { readClefId, isHiddenTag } from "@/lib/tags";
 import { displayTag, tagLabel, tagTooltip } from "@/lib/tagRegistry";
 import { basename } from "@/lib/utils";
 import { ClefIdBadge } from "./ClefIdBadge";
+import { TagFormatList } from "./TagFormatList";
+import type { TagMap } from "@/lib/types";
 
 export function SingleFileTags({
   filePath,
@@ -24,11 +26,8 @@ export function SingleFileTags({
   onClefId: (badge: React.ReactNode) => void;
 }) {
   const { tags, loading, error, reload } = useTags(filePath);
-  const mut = useTagMutations(reload);
-  const { useClefId, tagIndex } = useApp();
-  const { showRawTags } = usePrefs();
+  const { useClefId } = useApp();
   const { setTarget, tagsRefreshToken } = useHistoryPanel();
-  const { confirm } = useDialogs();
 
   // Reload after an undo elsewhere (history panel).
   const skipFirstRefresh = React.useRef(true);
@@ -40,7 +39,7 @@ export function SingleFileTags({
     reload();
   }, [tagsRefreshToken, reload]);
 
-  const clefId = tags ? readClefId(tags) : null;
+  const clefId = tags ? Object.values(tags).map(readClefId).find((id) => id !== null) ?? null : null;
   const showThrobber = useDelayedFlag(!tags && !error);
 
   // Publish the Clef_ID badge to the panel header.
@@ -64,50 +63,6 @@ export function SingleFileTags({
     setTarget(clefId ? { identifier: clefId, title: basename(filePath) } : null);
   }, [useClefId, filePath, clefId, loading, tags, setTarget]);
 
-  const entries = React.useMemo(
-    () =>
-      tags
-        ? Object.entries(tags).filter(([key]) => !isHiddenTag(key))
-        : [],
-    [tags],
-  );
-
-  // Labels are display-only; `key` stays the file's raw tag name everywhere a
-  // write is issued. Row order is keyed to the normalized name in both modes —
-  // flipping the toggle must relabel the rows in place, never reshuffle them.
-  const rows = React.useMemo(
-    () =>
-      entries
-        .map(([key, value]) => ({
-          key,
-          value,
-          label: tagLabel(tagIndex, key, showRawTags),
-          sortKey: displayTag(tagIndex, key),
-        }))
-        .sort((a, b) =>
-          a.sortKey.localeCompare(b.sortKey, undefined, { numeric: true }),
-        ),
-    [tagIndex, entries, showRawTags],
-  );
-
-  const removeFromMenu = async ({
-    key,
-    label,
-    value,
-  }: {
-    key: string;
-    label: string;
-    value: string;
-  }) => {
-    const ok = await confirm({
-      title: `Remove “${label || key}”?`,
-      description: "This deletes the tag field from this file.",
-      destructive: true,
-      confirmLabel: "Remove",
-    });
-    if (ok) await mut.removeFile(filePath, key, value);
-  };
-
   if (!tags && !error) {
     // Only reveal the throbber if the load is actually slow — avoids a flash.
     return showThrobber ? (
@@ -129,38 +84,48 @@ export function SingleFileTags({
   }
 
   return (
-    <TagPanelContextMenu onRemoveField={removeFromMenu}>
-      <div className="flex flex-col">
-        <CoverSection path={filePath} />
+    <div className="flex flex-col">
+      <CoverSection path={filePath} />
 
-        <div className="flex flex-col gap-4 p-4">
-          {rows.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground">No tags found</p>
-          ) : (
-            rows.map(({ key, label, value }) => (
-              <TagField
-                key={key}
-                filePath={filePath}
-                tagKey={key}
-                label={label}
-                labelTitle={tagTooltip(tagIndex, key, showRawTags)}
-                value={coerce(value)}
-                mut={mut}
-                reload={reload}
-              />
-            ))
-          )}
-
-          <AddFieldSection
-            variant="single"
-            onAdd={(scope, fieldType, value) =>
-              scope === "folder"
-                ? mut.addFolder(fieldType, value)
-                : mut.addFile(filePath, fieldType, value)
-            }
-          />
-        </div>
+      <div className="flex flex-col gap-4 p-4">
+        {Object.entries(tags ?? {}).map(([format, fields]) => (
+          <SingleTagFormat key={format} format={format} tags={fields} filePath={filePath} reload={reload} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+function SingleTagFormat({ format, tags, filePath, reload }: {
+  format: string;
+  tags: TagMap;
+  filePath: string;
+  reload: () => void;
+}) {
+  const mut = useTagMutations(reload, format);
+  const { tagIndex } = useApp();
+  const { showRawTags } = usePrefs();
+  const { confirm } = useDialogs();
+  const rows = Object.entries(tags).filter(([key]) => !isHiddenTag(key))
+    .sort(([a], [b]) => displayTag(tagIndex, a).localeCompare(displayTag(tagIndex, b), undefined, { numeric: true }));
+  return (
+    <TagPanelContextMenu onRemoveField={async ({ key, label, value }) => {
+      if (await confirm({ title: `Remove “${label || key}”?`, description: "This deletes the tag field from this file.", destructive: true, confirmLabel: "Remove" })) {
+        await mut.removeFile(filePath, key, value);
+      }
+    }}>
+      <TagFormatList format={format} count={rows.length}>
+        {rows.length === 0 && <p className="text-center text-sm text-muted-foreground">No tags found</p>}
+        {rows.map(([key, value]) => (
+          <TagField key={key} filePath={filePath} tagKey={key}
+            label={tagLabel(tagIndex, key, showRawTags)}
+            labelTitle={tagTooltip(tagIndex, key, showRawTags)}
+            value={value} mut={mut} reload={reload} />
+        ))}
+        <AddFieldSection variant="single" onAdd={(scope, fieldType, value) =>
+          scope === "folder" ? mut.addFolder(fieldType, value) : mut.addFile(filePath, fieldType, value)
+        } />
+      </TagFormatList>
     </TagPanelContextMenu>
   );
 }

@@ -47,7 +47,7 @@ export function TagPanel() {
   // it when exactly one music file is selected).
   React.useEffect(() => {
     if (musicFiles.length !== 1) setTarget(null);
-  }, [musicFiles.length, setTarget]);
+  }, [musicFiles, setTarget]);
 
   const onClefId = React.useCallback((badge: React.ReactNode) => {
     setClefIdBadge(badge);
@@ -66,7 +66,7 @@ export function TagPanel() {
   if (musicFiles.length === 1) {
     body = <SingleFileTags key={musicFiles[0].path} filePath={musicFiles[0].path} onClefId={onClefId} />;
   } else if (musicFiles.length > 1) {
-    body = <MultiFileTags key={selectionKey} filePaths={musicFiles.map((f) => f.path)} />;
+    body = <MultiFileTags key={selectionKey} filePaths={musicFiles.map((file) => file.path)} />;
   } else if (selection.files.length > 0) {
     body = (
       <EmptyPanel
