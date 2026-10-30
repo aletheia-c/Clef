@@ -1,6 +1,6 @@
 import {getJson, postJson} from './http';
 import type {TagAliases} from './tag_registry';
-import type {HistoryEntry, TagMap, TagService} from './tags';
+import type {HistoryEntry, TagGroups, TagMap, TagService} from './tags';
 
 type TagValue = string[] | string | number | boolean;
 
@@ -9,17 +9,14 @@ export class HttpTagService implements TagService {
     return getJson<TagAliases>('/api/tag-registry');
   }
 
-  async tags(path: string, signal: AbortSignal): Promise<TagMap> {
+  async tags(path: string, signal: AbortSignal): Promise<TagGroups> {
     const params = new URLSearchParams({path});
-    const tags = await getJson<Record<string, TagValue>>(
+    const groups = await getJson<Record<string, Record<string, TagValue>>>(
       `/api/tag?${params}`,
       signal,
     );
     return Object.fromEntries(
-      Object.entries(tags).map(([key, value]) => [
-        key,
-        Array.isArray(value) ? value : [String(value)],
-      ]),
+      Object.entries(groups).map(([format, tags]) => [format, toTagMap(tags)]),
     );
   }
 
@@ -57,4 +54,13 @@ export class HttpTagService implements TagService {
   undo(entry: HistoryEntry): Promise<void> {
     return postJson('/api/undo', entry);
   }
+}
+
+function toTagMap(tags: Record<string, TagValue>): TagMap {
+  return Object.fromEntries(
+    Object.entries(tags).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value : [String(value)],
+    ]),
+  );
 }

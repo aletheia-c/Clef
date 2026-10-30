@@ -2,6 +2,7 @@ import type {TagAliases} from './tag_registry';
 import {
   isClefId,
   type HistoryEntry,
+  type TagGroups,
   type TagMap,
   type TagService,
 } from './tags';
@@ -36,9 +37,9 @@ export class MockTagService implements TagService {
     );
   }
 
-  async tags(path: string, signal: AbortSignal): Promise<TagMap> {
+  async tags(path: string, signal: AbortSignal): Promise<TagGroups> {
     await delay(LATENCY_MS, signal);
-    return structuredClone(this.tagsOf(path));
+    return {xiph: structuredClone(this.tagsOf(path))};
   }
 
   coverUrl(path: string): string {

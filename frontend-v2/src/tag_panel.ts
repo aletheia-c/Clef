@@ -7,6 +7,7 @@ import type {TagRegistry} from './tag_registry';
 import {
   isClefId,
   TAGGABLE_EXTENSIONS,
+  type TagGroups,
   type TagMap,
   type TagService,
 } from './tags';
@@ -116,7 +117,7 @@ export class TagPanel {
     this.pending = controller;
 
     try {
-      const files: TagMap[] = [];
+      const files: TagGroups[] = [];
       for (const path of paths) {
         this.setStatus(progress('Loading', files.length, paths.length));
         files.push(await this.service.tags(path, controller.signal));
@@ -144,7 +145,8 @@ export class TagPanel {
     }
   }
 
-  private showClefId(tags: TagMap): string | undefined {
+  private showClefId(groups: TagGroups): string | undefined {
+    const tags: TagMap = Object.assign({}, ...Object.values(groups));
     const key = Object.keys(tags).find(isClefId);
     const clefId = key ? tags[key][0] : undefined;
     this.clefIdBadge.textContent = clefId ?? '';
@@ -356,9 +358,14 @@ function removeButton(label: string): HTMLButtonElement {
   return button;
 }
 
-function withoutClefId(tags: TagMap): TagMap {
+function withoutClefId(groups: TagGroups): TagGroups {
   return Object.fromEntries(
-    Object.entries(tags).filter(([key]) => !isClefId(key)),
+    Object.entries(groups).map(([format, tags]) => [
+      format,
+      Object.fromEntries(
+        Object.entries(tags).filter(([key]) => !isClefId(key)),
+      ),
+    ]),
   );
 }
 

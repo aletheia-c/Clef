@@ -1,8 +1,9 @@
 import type {TagRegistry} from './tag_registry';
-import type {TagMap} from './tags';
+import type {TagGroups} from './tags';
 
 export interface FileTag {
   key: string;
+  format: string;
   values: string[];
 }
 
@@ -12,17 +13,24 @@ export interface MergedTag {
   common: string[] | null;
 }
 
-export function mergeTags(files: TagMap[], registry: TagRegistry): MergedTag[] {
+export function mergeTags(
+  files: TagGroups[],
+  registry: TagRegistry,
+): MergedTag[] {
   const byName = new Map<string, Array<FileTag | undefined>>();
-  files.forEach((tags, index) => {
-    for (const key of Object.keys(tags).sort()) {
-      const name = registry.nameOf(key);
-      let perFile = byName.get(name);
-      if (!perFile) {
-        perFile = new Array<FileTag | undefined>(files.length).fill(undefined);
-        byName.set(name, perFile);
+  files.forEach((groups, index) => {
+    for (const [format, tags] of Object.entries(groups)) {
+      for (const key of Object.keys(tags).sort()) {
+        const name = registry.nameOf(key);
+        let perFile = byName.get(name);
+        if (!perFile) {
+          perFile = new Array<FileTag | undefined>(files.length).fill(
+            undefined,
+          );
+          byName.set(name, perFile);
+        }
+        perFile[index] ??= {key, format, values: tags[key]};
       }
-      perFile[index] ??= {key, values: tags[key]};
     }
   });
 

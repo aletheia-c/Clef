@@ -1,6 +1,7 @@
 import type {TagAliases} from './tag_registry';
 
 export type TagMap = Record<string, string[]>;
+export type TagGroups = Record<string, TagMap>;
 
 export const TAGGABLE_EXTENSIONS = new Set([
   '.mp3',
@@ -31,7 +32,7 @@ export function isClefId(key: string): boolean {
 
 export interface TagService {
   registry(): Promise<TagAliases>;
-  tags(path: string, signal: AbortSignal): Promise<TagMap>;
+  tags(path: string, signal: AbortSignal): Promise<TagGroups>;
   coverUrl(path: string): string;
   editValue(
     path: string,
