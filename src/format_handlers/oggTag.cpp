@@ -59,7 +59,7 @@ crow::response OggTag::editMusicTags(const TagChangeRequest &tagStruct, std::str
    return codecHandler(tagStruct.filePath)->editMusicTags(tagStruct, clefId);
 }
 
-std::expected<std::string, std::string> OggTag::resolveTag(const std::string_view tag) {
+std::expected<std::string, std::string> OggTag::resolveTag(const std::string_view tag, std::string_view) {
     auto resolve = getTagMap()->resolve(tag.data(), m_type.data());
     if (resolve.has_value())
         return resolve.value();

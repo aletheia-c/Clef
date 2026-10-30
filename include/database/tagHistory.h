@@ -35,19 +35,29 @@ namespace clef::storage {
                     clefId       TEXT,
                     action       TEXT    NOT NULL,
                     tag          TEXT    NOT NULL,
+                    format       TEXT,
                     old_value    TEXT,
                     new_value    TEXT,
                     changed_at   TEXT NOT NULL DEFAULT (datetime('now'))
                 )
             )");
             SQLite::Statement tableInfo { m_database, "PRAGMA table_info(tag_history)" };
+            bool hasLegacyId { false };
+            bool hasFormatCol { false };
             while (tableInfo.executeStep()) {
-                if (tableInfo.getColumn("name").getString() == "rteid") {
-                    CROW_LOG_WARNING << "Migrating database: renaming column 'rteid' to 'clefId'";
-                    m_database.exec("ALTER TABLE tag_history RENAME COLUMN rteid TO clefId");
-                    CROW_LOG_WARNING << "Database migration completed";
-                }
+                const auto name = tableInfo.getColumn("name").getString();
+                if (name == "rteid") hasLegacyId = true;
+                if (name == "format") hasFormatCol = true;
             }
+            if (hasLegacyId) {
+                CROW_LOG_WARNING << "Migrating database: renaming column 'rteid' to 'clefid'";
+                database.exec("ALTER TABLE tag_history RENAME COLUMN rteid TO clefid");
+            }
+            if (!hasFormatCol) {
+                CROW_LOG_WARNING << "Migrating database: adding history column 'format'";
+                database.exec("ALTER TABLE tag_history ADD COLUMN format TEXT");
+            }
+            CROW_LOG_WARNING << "Database migration completed";
         }
 
         SQLite::Database &getDatabase() { return m_database; }

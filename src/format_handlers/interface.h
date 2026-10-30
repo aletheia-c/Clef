@@ -25,7 +25,7 @@ namespace clef::music::handler {
         virtual tag::Picture getAlbumCover(const std::string &filePath) = 0;
         virtual void removeAlbumCover(const std::string &filePath) = 0;
         virtual void addAlbumCover(const std::string &filePath) = 0;
-        virtual std::expected<std::string, std::string> resolveTag(std::string_view tag) = 0;
+        virtual std::expected<std::string, std::string> resolveTag(std::string_view tag, std::string_view formatType) = 0;
     };
 }
 

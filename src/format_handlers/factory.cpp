@@ -9,6 +9,7 @@
 #include "mpeg.h"
 #include "oggOpus.h"
 #include "oggTag.h"
+#include "wav.h"
 
 using namespace clef::music::handler;
 
@@ -27,6 +28,8 @@ std::unique_ptr<Interface> Factory::create(const std::string_view extension) {
         return std::make_unique<OggTag>();
     if (ext == ".opus")
         return std::make_unique<OggOpus>();
+    if (ext == ".wav" || ext == ".wave")
+        return std::make_unique<Wav>();
 
     return nullptr;
 }

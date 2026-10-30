@@ -16,7 +16,9 @@ std::expected<json, std::string> OggSpeex::listMusicTags(const std::string &file
         return std::unexpected(filePath + " is not valid");
     }
 
-    return clef::music::xiph::listMusicTags(file.tag());
+    json j = json::object();
+    j["xiph"] = xiph::listMusicTags(file.tag());
+    return j;
 }
 
 crow::response OggSpeex::removeMusicTag(const TagChangeRequest &tagStruct, std::string *clefId) {
@@ -47,7 +49,7 @@ crow::response OggSpeex::addMusicTag(const TagChangeRequest &tagStruct, std::str
         return {500, "The file is not valid"};
     }
 
-    auto resolve = resolveTag(tagStruct.fieldType);
+    auto resolve = resolveTag(tagStruct.fieldType, tagStruct.formatType);
     if (!resolve.has_value()) {
         CROW_LOG_ERROR << resolve.error();
         return crow::response { 400, resolve.error() };
@@ -80,6 +82,6 @@ crow::response OggSpeex::editMusicTags(const TagChangeRequest &tagStruct, std::s
     return { 200, "OK" };
 }
 
-std::expected<std::string, std::string> OggSpeex::resolveTag(std::string_view tag) {
+std::expected<std::string, std::string> OggSpeex::resolveTag(std::string_view tag, std::string_view) {
     return clef::music::xiph::resolveTag(tag);
 }

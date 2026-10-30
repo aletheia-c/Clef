@@ -21,7 +21,7 @@ namespace clef::music::handler {
         tag::Picture getAlbumCover(const std::string &filePath) override { return tag::Picture{}; }
         void removeAlbumCover(const std::string &filePath) override {}
         void addAlbumCover(const std::string &filePath) override {}
-        std::expected<std::string, std::string> resolveTag(std::string_view tag) override;
+        std::expected<std::string, std::string> resolveTag(std::string_view tag, std::string_view formatType) override;
     private:
         std::unique_ptr<Interface> codecHandler(const std::string &filePath);
     };

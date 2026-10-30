@@ -270,25 +270,37 @@ int main (int argc, char **argv) {
         CROW_LOG_WARNING << logPrefix << "tag: " << tag;
 
         auto handler = Factory::create(clef::utils::getExtension(path));
-        auto rtag = handler->resolveTag(tag);
-        if (!rtag.has_value()) {
-            CROW_LOG_WARNING << logPrefix << rtag.error();
-            response.body = http::messages::unsupportedTag.data();
-            return response;
+        if (!handler) {
+            return crow::response { 400, http::messages::unsupportedFileFormat.data() };
         }
-        tag = rtag.value();
-        CROW_LOG_WARNING << logPrefix << "resolved tag: " << tag;
+
+        std::string format;
+        {
+            SQLite::Statement selected { application->getDatabase(),
+                "SELECT tag, format FROM tag_history "
+                "WHERE id = ? AND (clefId = ? OR path = ?);"
+            };
+            selected.bind(1, id);
+            selected.bind(2, clefId);
+            selected.bind(3, path);
+            if (!selected.executeStep()) {
+                return crow::response { 404, "History entry was not found" };
+            }
+            tag = selected.getColumn("tag").getString();
+            format = selected.getColumn("format").getString();
+        }
 
         // 2 - Get information from query
         SQLite::Statement q { application->getDatabase(),
             "SELECT action, old_value, new_value FROM tag_history "
-            "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ? "
+            "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ? AND format IS ? "
             "ORDER BY id DESC;"
         };
         q.bind(1, id);
         q.bind(2, clefId);
         q.bind(3, path);
         q.bind(4, tag);
+        q.bind(5, format);
 
         bool isGood { true };
         while (isGood && q.executeStep()) {
@@ -298,25 +310,28 @@ int main (int argc, char **argv) {
 
             if (action == "add") {
                 isGood = handler->removeMusicTag
-                    ({.filePath = path, .fieldType = tag, .value = newValue}).code == 200;
+                    ({.filePath = path, .fieldType = tag, .formatType = format, .value = newValue}).code == 200;
             } else if (action == "change") {
                 isGood = handler->editMusicTags
-                    ({.filePath = path, .fieldType = tag, .replaceWhat = newValue, .replaceWith = oldValue}).code == 200;
+                    ({.filePath = path, .fieldType = tag, .formatType = format, .replaceWhat = newValue, .replaceWith = oldValue}).code == 200;
             } else if (action == "remove") {
                 isGood = handler->addMusicTag
-                    ({.filePath = path, .fieldType = tag, .value = oldValue}).code == 200;
+                    ({.filePath = path, .fieldType = tag, .formatType = format, .value = oldValue}).code == 200;
+            } else {
+                isGood = false;
             }
         }
 
         if (isGood) {
             SQLite::Statement d { application->getDatabase(),
                 "DELETE FROM tag_history "
-                "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ?;"
+                "WHERE id >= ? AND (clefId = ? OR path = ?) AND tag = ? AND format IS ?;"
             };
             d.bind(1, id);
             d.bind(2, clefId);
             d.bind(3, path);
             d.bind(4, tag);
+            d.bind(5, format);
             d.exec();
 
             response.code = 200;
@@ -363,7 +378,7 @@ int main (int argc, char **argv) {
         if (application->getClefIdStatus()) // Match history by Clef_ID when enabled
             clause = "clefId = ?";
 
-        SQLite::Statement query(application->getDatabase(), "SELECT * FROM tag_history WHERE "
+        SQLite::Statement query(application->getDatabase(), "SELECT id, path, clefId, action, tag, old_value, new_value, changed_at FROM tag_history WHERE "
             +clause +" ORDER BY changed_at DESC");
         query.bind(1, fileIdentifier.c_str());
         json result = json::array();
@@ -410,6 +425,7 @@ int main (int argc, char **argv) {
             clef::TagChangeRequest tagStruct {
                 .filePath = body.value("path", clef::jsonMissingValue.data()),
                 .fieldType = body.value("tagType", clef::jsonMissingValue.data()),
+                .formatType = body.value("format", clef::jsonMissingValue.data()),
                 .replaceWhat = { body.value("replaceWhat", clef::jsonMissingValue.data()), String::UTF8 },
                 .replaceWith = { body.value("replaceWith", clef::jsonMissingValue.data()), String::UTF8 },
             };
@@ -431,7 +447,7 @@ int main (int argc, char **argv) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
                 return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
-            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            const auto rtag = handler->resolveTag(tagStruct.fieldType, tagStruct.formatType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << rtag.error();
                 return crow::response { 500, http::messages::unsupportedTag.data() };
@@ -464,6 +480,7 @@ int main (int argc, char **argv) {
             clef::TagChangeRequest tagStruct {
                 .filePath = body.value("path", clef::jsonMissingValue.data()),
                 .fieldType = body.value("fieldType", clef::jsonMissingValue.data()),
+                .formatType = body.value("format", clef::jsonMissingValue.data()),
                 .value = { body.value("value", clef::jsonMissingValue.data()), String::UTF8 }
             };
             if (!tagStruct.isValid()) {
@@ -484,7 +501,7 @@ int main (int argc, char **argv) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
                 return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
-            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            const auto rtag = handler->resolveTag(tagStruct.fieldType, tagStruct.formatType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << rtag.error();
                 return crow::response { 500, http::messages::unsupportedTag.data() };
@@ -518,6 +535,7 @@ int main (int argc, char **argv) {
             clef::TagChangeRequest tagStruct {
                 .filePath = body.value("path", "none"),
                 .fieldType = body.value("fieldType", "none"),
+                .formatType = body.value("format", clef::jsonMissingValue.data()),
                 .value = { body.value("value", "none"), String::UTF8 }
             };
             if (!tagStruct.isValid()) {
@@ -551,7 +569,7 @@ int main (int argc, char **argv) {
                 CROW_LOG_CRITICAL << logPrefix << "Cannot create a handler for " << tagStruct.filePath;
                 return crow::response { 400, http::messages::unsupportedFileFormat.data() };
             }
-            const auto rtag = handler->resolveTag(tagStruct.fieldType);
+            const auto rtag = handler->resolveTag(tagStruct.fieldType, tagStruct.formatType);
             if (!rtag.has_value()) {
                 CROW_LOG_ERROR << logPrefix << rtag.error();
                 return crow::response { 422, http::messages::unsupportedTag.data() };
